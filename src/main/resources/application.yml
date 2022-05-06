@@ -1,24 +1,23 @@
 info:
-  version: @project.version@
+  version: '@project.version@'
   stage: dev
 
 server:
-  port: @server.port@
+  port: '@server.port@'
 
 management:
-  security:
-    flag: false
   server:
-    port: @management.port@
+    port: '@management.port@'
   metrics:
     export:
-      statsd:
-        flavor: etsy
-        enabled: false
       prometheus:
         enabled: false
+    tags:
+      application: '@project.name@'
   endpoint:
     health:
+      probes:
+        enabled: true
       show-details: always
     metrics:
       enabled: true
@@ -31,7 +30,7 @@ management:
 
 spring:
   application:
-    name: @project.name@
+    name: '@project.name@'
   output:
     ansi:
       enabled: always
