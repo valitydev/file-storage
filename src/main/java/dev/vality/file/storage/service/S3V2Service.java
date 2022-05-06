@@ -1,9 +1,9 @@
 package dev.vality.file.storage.service;
 
+import dev.vality.damsel.msgpack.Value;
 import dev.vality.file.storage.FileData;
 import dev.vality.file.storage.NewFileResult;
 import dev.vality.file.storage.configuration.properties.S3SdkV2Properties;
-import dev.vality.file.storage.msgpack.Value;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
 import dev.vality.file.storage.service.exception.StorageException;
 import dev.vality.file.storage.util.DamselUtil;

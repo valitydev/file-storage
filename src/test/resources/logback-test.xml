@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <root level="info">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <logger name="org.apache.http">
+        <level value="error"/>
+    </logger>
+
+    <logger name="com.amazonaws">
+        <level value="error"/>
+    </logger>
+
+    <logger name="dev.vality.woody">
+        <level value="error"/>
+    </logger>
+
+</configuration>

@@ -1,10 +1,10 @@
 package dev.vality.file.storage.handler;
 
+import dev.vality.damsel.msgpack.Value;
 import dev.vality.file.storage.FileData;
 import dev.vality.file.storage.FileNotFound;
 import dev.vality.file.storage.FileStorageSrv;
 import dev.vality.file.storage.NewFileResult;
-import dev.vality.file.storage.msgpack.Value;
 import dev.vality.file.storage.service.StorageService;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
 import dev.vality.file.storage.service.exception.StorageException;
