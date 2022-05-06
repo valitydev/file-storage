@@ -30,7 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static dev.vality.file.storage.msgpack.Value.*;
+import static dev.vality.damsel.msgpack.Value.*;
 import static dev.vality.testcontainers.annotations.util.ValuesGenerator.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -59,9 +59,9 @@ public abstract class FileStorageTest {
     @Test
     public void fileUploadWithHttpClientBuilderTest() throws IOException, URISyntaxException, TException {
         String expirationTime = generateCurrentTimePlusDay().toString();
-        Map<String, dev.vality.file.storage.msgpack.Value> metadata = new HashMap<>();
-        metadata.put("author", dev.vality.file.storage.msgpack.Value.str("Mary Doe"));
-        metadata.put("version", dev.vality.file.storage.msgpack.Value.str("1.0.0.0"));
+        Map<String, dev.vality.damsel.msgpack.Value> metadata = new HashMap<>();
+        metadata.put("author", dev.vality.damsel.msgpack.Value.str("Mary Doe"));
+        metadata.put("version", dev.vality.damsel.msgpack.Value.str("1.0.0.0"));
 
         NewFileResult fileResult = fileStorageClient.createNewFile(metadata, expirationTime);
 
@@ -94,9 +94,9 @@ public abstract class FileStorageTest {
         try {
             // создание нового файла
             String expirationTime = generateCurrentTimePlusDay().toString();
-            Map<String, dev.vality.file.storage.msgpack.Value> metadata = new HashMap<>();
-            metadata.put("author", dev.vality.file.storage.msgpack.Value.str("Mary Doe"));
-            metadata.put("version", dev.vality.file.storage.msgpack.Value.str("1.0.0.0"));
+            Map<String, dev.vality.damsel.msgpack.Value> metadata = new HashMap<>();
+            metadata.put("author", dev.vality.damsel.msgpack.Value.str("Mary Doe"));
+            metadata.put("version", dev.vality.damsel.msgpack.Value.str("1.0.0.0"));
             NewFileResult fileResult = fileStorageClient.createNewFile(metadata, expirationTime);
             uploadTestData(fileResult, FILE_NAME, FILE_DATA);
 
