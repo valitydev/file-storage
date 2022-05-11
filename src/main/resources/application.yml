@@ -36,23 +36,23 @@ spring:
       enabled: always
 
 s3:
-  endpoint: 'http://127.0.0.1:32827'
+  endpoint: 'http://127.0.0.1:9000'
   bucket-name: 'files'
   signing-region: 'RU'
   client-protocol: 'http'
   client-max-error-retry: 10
-  signer-override: 'S3SignerType'
-#  signer-override: 'AWSS3V4SignerType'
-  access-key: 'test'
-  secret-key: 'test'
+  #  signer-override: 'S3SignerType'
+  signer-override: 'AWSS3V4SignerType'
+  access-key: 'minio'
+  secret-key: 'minio123'
 
 s3-sdk-v2:
   enabled: 'false'
   endpoint: 'http://127.0.0.1:9000'
   bucket-name: 'files-v2'
   region: 'RU'
-  access-key: 'test'
-  secret-key: 'test'
+  access-key: 'minio'
+  secret-key: 'minio123'
 
 testcontainers:
   ceph:

@@ -34,9 +34,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class S3V2Service implements StorageService {
 
-    private static final String FILE_ID = "x-rbkmoney-file-id";
-    private static final String CREATED_AT = "x-rbkmoney-created-at";
-    private static final String METADATA = "x-rbkmoney-metadata-";
+    private static final String FILE_ID = "x-vality-file-id";
+    private static final String CREATED_AT = "x-vality-created-at";
+    private static final String METADATA = "x-vality-metadata-";
     private static final String FILENAME_PARAM = "filename=";
 
     private final S3SdkV2Properties s3SdkV2Properties;
