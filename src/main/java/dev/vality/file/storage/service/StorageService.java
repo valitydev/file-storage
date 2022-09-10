@@ -1,8 +1,8 @@
 package dev.vality.file.storage.service;
 
-import dev.vality.damsel.msgpack.Value;
 import dev.vality.file.storage.FileData;
 import dev.vality.file.storage.NewFileResult;
+import dev.vality.msgpack.Value;
 
 import java.net.URL;
 import java.time.Instant;

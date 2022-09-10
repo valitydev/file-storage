@@ -34,7 +34,8 @@
         </dependency>
         <dependency>
             <groupId>dev.vality</groupId>
-            <artifactId>damsel</artifactId>
+            <artifactId>msgpack-proto</artifactId>
+            <version>1.15-ce882a7</version>
         </dependency>
         <dependency>
             <groupId>dev.vality.woody</groupId>

@@ -1,6 +1,5 @@
 package dev.vality.file.storage.handler;
 
-import dev.vality.damsel.msgpack.Value;
 import dev.vality.file.storage.FileData;
 import dev.vality.file.storage.FileNotFound;
 import dev.vality.file.storage.FileStorageSrv;
@@ -10,6 +9,7 @@ import dev.vality.file.storage.service.exception.FileNotFoundException;
 import dev.vality.file.storage.service.exception.StorageException;
 import dev.vality.file.storage.util.CheckerUtil;
 import dev.vality.geck.common.util.TypeUtil;
+import dev.vality.msgpack.Value;
 import dev.vality.woody.api.flow.error.WUnavailableResultException;
 import dev.vality.woody.api.flow.error.WUndefinedResultException;
 import lombok.RequiredArgsConstructor;
