@@ -6,7 +6,7 @@
     <parent>
         <groupId>dev.vality</groupId>
         <artifactId>service-parent-pom</artifactId>
-        <version>1.0.18</version>
+        <version>1.0.19</version>
     </parent>
 
     <artifactId>file-storage</artifactId>
@@ -35,11 +35,6 @@
         <dependency>
             <groupId>dev.vality</groupId>
             <artifactId>msgpack-proto</artifactId>
-            <version>1.15-ce882a7</version>
-        </dependency>
-        <dependency>
-            <groupId>dev.vality.woody</groupId>
-            <artifactId>woody-thrift</artifactId>
         </dependency>
         <dependency>
             <groupId>dev.vality.geck</groupId>
@@ -52,10 +47,6 @@
         <dependency>
             <groupId>dev.vality.geck</groupId>
             <artifactId>filter</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>dev.vality</groupId>
-            <artifactId>shared-resources</artifactId>
         </dependency>
 
         <!-- Spring libs -->
@@ -90,22 +81,9 @@
             <version>1.12.300</version>
         </dependency>
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
             <version>2.17.271</version>
-        </dependency>
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>
