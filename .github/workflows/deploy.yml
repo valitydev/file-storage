@@ -4,14 +4,9 @@ on:
   push:
     branches:
       - 'master'
-      - 'main'
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  deploy:
+  build-and-deploy:
     uses: valitydev/java-workflow/.github/workflows/maven-service-deploy.yml@v2
     secrets:
       github-token: ${{ secrets.GITHUB_TOKEN }}

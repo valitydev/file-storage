@@ -1,4 +1,4 @@
-name: Maven Build Artifact
+name: Build Maven Artifact
 
 on:
   pull_request:
