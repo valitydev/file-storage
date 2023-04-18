@@ -11,7 +11,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -29,7 +28,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Service
-@ConditionalOnProperty(value = "s3-sdk-v2.enabled", havingValue = "true")
 @Slf4j
 @RequiredArgsConstructor
 public class S3V2Service implements StorageService {

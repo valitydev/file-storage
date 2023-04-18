@@ -5,39 +5,16 @@ access an Amazon S3 resource without requiring the user of the URL to know the a
 
 ## Параметры запуска
 
-Для работы с 1 версией `AWS SDK S3`
-
-```yaml
-s3:
-  endpoint: 'http://127.0.0.1:32827'
-  bucket-name: 'files'
-  signing-region: 'RU'
-  client-protocol: 'http'
-  client-max-error-retry: 10
-  signer-override: 'S3SignerType'
-  #  signer-override: 'AWSS3V4SignerType'
-  access-key: 'test'
-  secret-key: 'test'
-s3-sdk-v2:
-  enabled: 'false'
-```
-
-дефолтная версия сигнера — `S3SignerType`, для использования более актуальной версии указывается `AWSS3V4SignerType`
-
 Для работы с 2 версией `AWS SDK S3 V2`
 
 ```yaml
 s3-sdk-v2:
-  enabled: 'true'
   endpoint: 'http://127.0.0.1:9000'
   bucket-name: 'files-v2'
   region: 'RU'
   access-key: 'minio'
   secret-key: 'minio123'
 ```
-
-Для работы сервиса может использоваться только одна из двух версий `AWS SDK S3`, переключение происходит
-параметром `s3-sdk-v2.enabled=false`
 
 ## Minio
 

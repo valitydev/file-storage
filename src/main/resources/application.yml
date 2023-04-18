@@ -1,19 +1,19 @@
 info:
-  version: '@project.version@'
+  version: '${project.version}'
   stage: dev
 
 server:
-  port: '@server.port@'
+  port: '${server.port}'
 
 management:
   server:
-    port: '@management.port@'
+    port: '${management.port}'
   metrics:
     export:
       prometheus:
         enabled: false
     tags:
-      application: '@project.name@'
+      application: '${project.name}'
   endpoint:
     health:
       probes:
@@ -30,24 +30,12 @@ management:
 
 spring:
   application:
-    name: '@project.name@'
+    name: '${project.name}'
   output:
     ansi:
       enabled: always
 
-s3:
-  endpoint: 'http://127.0.0.1:9000'
-  bucket-name: 'files'
-  signing-region: 'RU'
-  client-protocol: 'http'
-  client-max-error-retry: 10
-  #  signer-override: 'S3SignerType'
-  signer-override: 'AWSS3V4SignerType'
-  access-key: 'minio'
-  secret-key: 'minio123'
-
 s3-sdk-v2:
-  enabled: 'false'
   endpoint: 'http://127.0.0.1:9000'
   bucket-name: 'files-v2'
   region: 'RU'

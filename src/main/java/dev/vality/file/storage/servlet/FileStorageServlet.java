@@ -8,7 +8,7 @@ import javax.servlet.*;
 import javax.servlet.annotation.WebServlet;
 import java.io.IOException;
 
-@WebServlet("/file_storage")
+@WebServlet("/file_storage/v2")
 @RequiredArgsConstructor
 public class FileStorageServlet extends GenericServlet {
 

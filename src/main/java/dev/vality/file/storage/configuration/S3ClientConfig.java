@@ -12,13 +12,11 @@ import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import dev.vality.file.storage.configuration.properties.S3Properties;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-@Configuration
+//@Configuration
 @RequiredArgsConstructor
-@EnableConfigurationProperties(S3Properties.class)
+//@EnableConfigurationProperties(S3Properties.class)
 public class S3ClientConfig {
 
     private final S3Properties s3Properties;

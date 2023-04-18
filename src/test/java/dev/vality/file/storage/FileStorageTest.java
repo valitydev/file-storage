@@ -51,7 +51,7 @@ public abstract class FileStorageTest {
     @BeforeEach
     public void setUp() throws Exception {
         fileStorageClient = new THSpawnClientBuilder()
-                .withAddress(new URI("http://localhost:" + port + "/file_storage"))
+                .withAddress(new URI("http://localhost:" + port + "/file_storage/v2"))
                 .withNetworkTimeout(TIMEOUT)
                 .build(FileStorageSrv.Iface.class);
     }

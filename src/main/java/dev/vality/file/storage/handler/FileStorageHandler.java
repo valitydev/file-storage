@@ -6,12 +6,9 @@ import dev.vality.file.storage.FileStorageSrv;
 import dev.vality.file.storage.NewFileResult;
 import dev.vality.file.storage.service.StorageService;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
-import dev.vality.file.storage.service.exception.StorageException;
 import dev.vality.file.storage.util.CheckerUtil;
 import dev.vality.geck.common.util.TypeUtil;
 import dev.vality.msgpack.Value;
-import dev.vality.woody.api.flow.error.WUnavailableResultException;
-import dev.vality.woody.api.flow.error.WUndefinedResultException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.thrift.TException;
@@ -30,14 +27,8 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
 
     @Override
     public NewFileResult createNewFile(Map<String, Value> metadata, String expiresAt) throws TException {
-        try {
-            Instant instant = TypeUtil.stringToInstant(expiresAt);
-            return storageService.createNewFile(metadata, instant);
-        } catch (StorageException e) {
-            throw unavailableResultException(e);
-        } catch (Exception e) {
-            throw undefinedResultException("Error when \"createNewFile\"", e);
-        }
+        var instant = TypeUtil.stringToInstant(expiresAt);
+        return storageService.createNewFile(metadata, instant);
     }
 
     @Override
@@ -50,10 +41,6 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
             return url.toString();
         } catch (FileNotFoundException e) {
             throw fileNotFound(e);
-        } catch (StorageException e) {
-            throw unavailableResultException(e);
-        } catch (Exception e) {
-            throw undefinedResultException("Error when \"generateDownloadUrl\"", e);
         }
     }
 
@@ -64,25 +51,11 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
             return storageService.getFileData(fileDataId);
         } catch (FileNotFoundException e) {
             throw fileNotFound(e);
-        } catch (StorageException e) {
-            throw unavailableResultException(e);
-        } catch (Exception e) {
-            throw undefinedResultException("Error when \"getFileData\"", e);
         }
     }
 
     private FileNotFound fileNotFound(FileNotFoundException e) {
         log.warn("File not found", e);
         return new FileNotFound();
-    }
-
-    private WUnavailableResultException unavailableResultException(StorageException e) {
-        log.error("Error with storage", e);
-        return new WUnavailableResultException("Error with storage", e);
-    }
-
-    private WUndefinedResultException undefinedResultException(String msg, Exception e) {
-        log.error(msg, e);
-        return new WUndefinedResultException(msg, e);
     }
 }
