@@ -1,9 +1,6 @@
 package dev.vality.file.storage.handler;
 
-import dev.vality.file.storage.FileData;
-import dev.vality.file.storage.FileNotFound;
-import dev.vality.file.storage.FileStorageSrv;
-import dev.vality.file.storage.NewFileResult;
+import dev.vality.file.storage.*;
 import dev.vality.file.storage.service.StorageService;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
 import dev.vality.file.storage.util.CheckerUtil;
@@ -52,6 +49,35 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
         } catch (FileNotFoundException e) {
             throw fileNotFound(e);
         }
+    }
+
+    @Override
+    public CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata) {
+        log.info("Receive request for create multipart upload with metadata={}", metadata);
+        CreateMultipartUploadResult result = storageService.createMultipartUpload(metadata);
+        log.info("Successfully create multipart upload, fileId={}, uploadId={}",
+                result.getFileDataId(), result.getMultipartUploadId());
+        return result;
+    }
+
+    @Override
+    public UploadMultipartResult uploadMultipart(UploadMultipartRequestData request) {
+        log.debug("Receive request for upload file part, fileId={}, uploadId={}, sequencePart={}",
+                request.getFileDataId(), request.getMultipartUploadId(), request.getSequencePart());
+        UploadMultipartResult result = storageService.uploadMultipart(request);
+        log.debug("Successfully upload file part, fileId={}, uploadId={}, partId={}",
+                request.getFileDataId(), request.getMultipartUploadId(), result.getPartId());
+        return result;
+    }
+
+    @Override
+    public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request) {
+        log.info("Receive request for complete multipart upload, fileId={}, uploadId={}",
+                request.getFileDataId(), request.getMultipartUploadId());
+        CompleteMultipartUploadResult result = storageService.completeMultipartUpload(request);
+        log.info("Successfully complete multipart upload, fileId={}, url={}",
+                request.getFileDataId(), result.getUploadUrl());
+        return result;
     }
 
     private FileNotFound fileNotFound(FileNotFoundException e) {

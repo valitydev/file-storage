@@ -1,7 +1,7 @@
 package dev.vality.file.storage.service;
 
-import dev.vality.file.storage.FileData;
-import dev.vality.file.storage.NewFileResult;
+import dev.vality.file.storage.*;
+import dev.vality.file.storage.CompleteMultipartUploadRequest;
 import dev.vality.file.storage.configuration.properties.S3SdkV2Properties;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
 import dev.vality.file.storage.service.exception.StorageException;
@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
@@ -396,6 +399,135 @@ public class S3V2Service implements StorageService {
     private String extractFileName(String contentDisposition) {
         int fileNameIndex = contentDisposition.lastIndexOf(FILENAME_PARAM) + FILENAME_PARAM.length();
         return contentDisposition.substring(fileNameIndex).replaceAll("\"", "");
+    }
+
+
+    @Override
+    public CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata) {
+        var fileId = UUID.randomUUID().toString();
+        try {
+            var s3Metadata = new HashMap<String, String>();
+            s3Metadata.put(FILE_ID, fileId);
+            s3Metadata.put(CREATED_AT, Instant.now().toString());
+            metadata.forEach((key, value) -> s3Metadata.put(METADATA + key, DamselUtil.toJsonString(value)));
+            var createRequest = CreateMultipartUploadRequest.builder()
+                    .bucket(s3SdkV2Properties.getBucketName())
+                    .key(fileId)
+                    .metadata(s3Metadata)
+                    .build();
+            CreateMultipartUploadResponse createResponse = s3SdkV2Client.createMultipartUpload(createRequest);
+            var response = createResponse.sdkHttpResponse();
+            log.info("Check create multipart upload object with file metadata result {}:{}",
+                    response.statusCode(), response.statusText());
+            if (response.isSuccessful()) {
+                log.info("Multipart upload was created, fileId={}, bucketName={}, uploadId={}",
+                        fileId, s3SdkV2Properties.getBucketName(), createResponse.uploadId());
+            } else {
+                throw new StorageException(String.format(
+                        "Failed to create multipart upload, fileId=%s, bucketName=%s",
+                        fileId, s3SdkV2Properties.getBucketName()));
+            }
+            return new CreateMultipartUploadResult()
+                    .setFileDataId(fileId)
+                    .setMultipartUploadId(createResponse.uploadId());
+        } catch (SdkException ex) {
+            throw new StorageException(
+                    String.format("Failed to create multipart upload, fileId=%s, bucketName=%s",
+                            fileId, s3SdkV2Properties.getBucketName()),
+                    ex);
+        }
+    }
+
+    @Override
+    public UploadMultipartResult uploadMultipart(UploadMultipartRequestData requestData) {
+        String fileId = requestData.getFileDataId();
+        String multipartUploadId = requestData.getMultipartUploadId();
+        try {
+            var uploadPartRequest = UploadPartRequest.builder()
+                    .bucket(s3SdkV2Properties.getBucketName())
+                    .key(fileId)
+                    .uploadId(multipartUploadId)
+                    .partNumber(requestData.getSequencePart())
+                    .contentLength((long) requestData.getContentLength())
+                    .build();
+            RequestBody requestBody = RequestBody.fromBytes(requestData.getContent());
+            UploadPartResponse uploadPartResponse = s3SdkV2Client.uploadPart(uploadPartRequest, requestBody);
+            var response = uploadPartResponse.sdkHttpResponse();
+            log.info("Check file part upload result {}:{}",
+                    response.statusCode(), response.statusText());
+            if (response.isSuccessful()) {
+                log.info("File part was uploaded, fileId={}, bucketName={}, uploadId={}, partId={}",
+                        fileId, s3SdkV2Properties.getBucketName(), multipartUploadId, uploadPartResponse.eTag());
+            } else {
+                throw new StorageException(String.format(
+                        "Failed to upload file part, fileId=%s, bucketName=%s, uploadId=%s",
+                        fileId, s3SdkV2Properties.getBucketName(), multipartUploadId));
+            }
+            return new UploadMultipartResult()
+                    .setPartId(uploadPartResponse.eTag())
+                    .setSequencePart(requestData.getSequencePart());
+        } catch (SdkException ex) {
+            throw new StorageException(
+                    String.format("Failed to upload file part, fileId=%s, bucketName=%s, uploadId=%s",
+                            fileId, s3SdkV2Properties.getBucketName(), multipartUploadId),
+                    ex);
+        }
+    }
+
+    @Override
+    public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request) {
+        String fileId = request.getFileDataId();
+        String multipartUploadId = request.getMultipartUploadId();
+        try {
+            var completeRequest = buildRequest(request, fileId, multipartUploadId);
+            CompleteMultipartUploadResponse completeResponse = s3SdkV2Client.completeMultipartUpload(completeRequest);
+            var response = completeResponse.sdkHttpResponse();
+            log.info("Check complete multipart upload result {}:{}",
+                    response.statusCode(), response.statusText());
+            if (response.isSuccessful()) {
+                log.info("Multipart upload was completed, fileId={}, bucketName={}, uploadId={}",
+                        fileId, s3SdkV2Properties.getBucketName(), multipartUploadId);
+            } else {
+                throw new StorageException(String.format(
+                        "Failed to complete multipart upload, fileId=%s, bucketName=%s, uploadId=%s",
+                        fileId, s3SdkV2Properties.getBucketName(), multipartUploadId));
+            }
+            String objectUrl = s3SdkV2Client.utilities().getUrl(GetUrlRequest.builder()
+                            .bucket(s3SdkV2Properties.getBucketName())
+                            .key(fileId)
+                            .build())
+                    .toExternalForm();
+            log.info("Create url for multipart uploaded file, url={}, fileId={}, bucketName={}, uploadId={}",
+                    objectUrl, fileId, s3SdkV2Properties.getBucketName(), multipartUploadId);
+            return new CompleteMultipartUploadResult()
+                    .setUploadUrl(objectUrl);
+        } catch (SdkException ex) {
+            throw new StorageException(
+                    String.format("Failed to complete multipart upload, fileId=%s, bucketName=%s, uploadId=%s",
+                            fileId, s3SdkV2Properties.getBucketName(), multipartUploadId),
+                    ex);
+        }
+    }
+
+    private software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest buildRequest(
+            CompleteMultipartUploadRequest request,
+            String fileId,
+            String multipartUploadId) {
+        List<CompletedPart> completedParts = request.getCompletedParts().stream()
+                .map(completedMultipart -> CompletedPart.builder()
+                        .eTag(completedMultipart.getPartId())
+                        .partNumber(completedMultipart.getSequencePart())
+                        .build())
+                .toList();
+        CompletedMultipartUpload completedUpload = CompletedMultipartUpload.builder()
+                .parts(completedParts)
+                .build();
+        return software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest.builder()
+                .bucket(s3SdkV2Properties.getBucketName())
+                .key(fileId)
+                .uploadId(multipartUploadId)
+                .multipartUpload(completedUpload)
+                .build();
     }
 
     @RequiredArgsConstructor

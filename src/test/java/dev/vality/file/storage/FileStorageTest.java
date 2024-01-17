@@ -19,7 +19,9 @@ import org.springframework.test.context.TestPropertySource;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.io.RandomAccessFile;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,7 +67,7 @@ public abstract class FileStorageTest {
 
         NewFileResult fileResult = fileStorageClient.createNewFile(metadata, expirationTime);
 
-        Path path = getFileFromResources();
+        Path path = getFileFromResources("respect");
 
         HttpPut requestPut = new HttpPut(fileResult.getUploadUrl());
         requestPut.setHeader(
@@ -260,7 +262,7 @@ public abstract class FileStorageTest {
 
         NewFileResult fileResult = fileStorageClient.createNewFile(Collections.emptyMap(), expirationTime);
 
-        Path path = getFileFromResources();
+        Path path = getFileFromResources("respect");
 
         HttpPut requestPut = new HttpPut(fileResult.getUploadUrl());
         requestPut.setHeader(
@@ -318,6 +320,13 @@ public abstract class FileStorageTest {
         return Paths.get(url.toURI());
     }
 
+    private Path getFileFromResources(String name) throws URISyntaxException {
+        ClassLoader classLoader = this.getClass().getClassLoader();
+
+        URL url = Objects.requireNonNull(classLoader.getResource(name));
+        return Paths.get(url.toURI());
+    }
+
     public static HttpURLConnection getHttpURLConnection(URL url, String method, boolean doOutput) throws IOException {
         return getHttpURLConnection(url, method, null, doOutput);
     }
@@ -333,5 +342,54 @@ public abstract class FileStorageTest {
                     "attachment;filename=" + URLEncoder.encode(fileName, StandardCharsets.UTF_8.name()));
         }
         return connection;
+    }
+
+    @Test
+    public void multipartUploadTest() throws Exception {
+        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(Collections.emptyMap());
+        assertNotNull(createResult.getFileDataId());
+        assertNotNull(createResult.getMultipartUploadId());
+
+        List<CompletedMultipart> completedParts = new ArrayList<>();
+        int partNumber = 1;
+        ByteBuffer buffer = ByteBuffer.allocate(5 * 1024 * 1024);
+        Path path = getFileFromResources("test_registry.csv");
+        try (RandomAccessFile file = new RandomAccessFile(path.toFile(), "r")) {
+            long fileSize = file.length();
+            long position = 0;
+            while (position < fileSize) {
+                file.seek(position);
+                int bytesRead = file.getChannel().read(buffer);
+                buffer.flip();
+                var requestData = new UploadMultipartRequestData()
+                        .setFileDataId(createResult.getFileDataId())
+                        .setMultipartUploadId(createResult.getMultipartUploadId())
+                        .setContent(buffer)
+                        .setContentLength(bytesRead)
+                        .setSequencePart(partNumber);
+
+                UploadMultipartResult response = fileStorageClient.uploadMultipart(requestData);
+
+                completedParts.add(new CompletedMultipart()
+                        .setSequencePart(partNumber)
+                        .setPartId(response.getPartId()));
+
+                buffer.clear();
+                position += bytesRead;
+                partNumber++;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        var completeRequest = new CompleteMultipartUploadRequest()
+                .setMultipartUploadId(createResult.getMultipartUploadId())
+                .setFileDataId(createResult.getFileDataId())
+                .setCompletedParts(completedParts);
+
+        CompleteMultipartUploadResult result = fileStorageClient.completeMultipartUpload(completeRequest);
+
+        assertNotNull(result);
+        assertNotNull(result.getUploadUrl());
     }
 }
