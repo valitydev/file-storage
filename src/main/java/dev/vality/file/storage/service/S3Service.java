@@ -6,8 +6,9 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.Upload;
-import dev.vality.file.storage.FileData;
-import dev.vality.file.storage.NewFileResult;
+import dev.vality.file.storage.*;
+import dev.vality.file.storage.CompleteMultipartUploadRequest;
+import dev.vality.file.storage.CompleteMultipartUploadResult;
 import dev.vality.file.storage.configuration.properties.S3Properties;
 import dev.vality.file.storage.service.exception.ExtractMetadataException;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
@@ -110,6 +111,21 @@ public class S3Service implements StorageService {
         log.info("FileData has been successfully got, fileDataId='{}', bucketId='{}'", fileDataId, bucketName);
 
         return new FileData(fileDto.getFileDataId(), fileName, fileDto.getCreatedAt(), fileDto.getMetadata());
+    }
+
+    @Override
+    public CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata) {
+        throw new UnsupportedOperationException("Method not supported");
+    }
+
+    @Override
+    public UploadMultipartResult uploadMultipart(UploadMultipartRequestData requestData) {
+        throw new UnsupportedOperationException("Method not supported");
+    }
+
+    @Override
+    public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request) {
+        throw new UnsupportedOperationException("Method not supported");
     }
 
     @PreDestroy
