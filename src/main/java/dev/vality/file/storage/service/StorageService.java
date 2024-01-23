@@ -15,6 +15,8 @@ public interface StorageService {
 
     FileData getFileData(String fileDataId);
 
+    FileData getMultipartFileData(String fileId);
+
     CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata);
 
     UploadMultipartResult uploadMultipart(UploadMultipartRequestData requestData);

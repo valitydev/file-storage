@@ -351,6 +351,21 @@ public abstract class FileStorageTest {
         assertNotNull(createResult.getMultipartUploadId());
 
         List<CompletedMultipart> completedParts = new ArrayList<>();
+        processMultipartUpload(createResult, completedParts);
+
+        var completeRequest = new CompleteMultipartUploadRequest()
+                .setMultipartUploadId(createResult.getMultipartUploadId())
+                .setFileDataId(createResult.getFileDataId())
+                .setCompletedParts(completedParts);
+
+        CompleteMultipartUploadResult result = fileStorageClient.completeMultipartUpload(completeRequest);
+
+        assertNotNull(result);
+        assertNotNull(result.getUploadUrl());
+    }
+
+    private void processMultipartUpload(CreateMultipartUploadResult createResult,
+                                        List<CompletedMultipart> completedParts) throws URISyntaxException {
         int partNumber = 1;
         ByteBuffer buffer = ByteBuffer.allocate(5 * 1024 * 1024);
         Path path = getFileFromResources("test_registry.csv");
@@ -378,9 +393,23 @@ public abstract class FileStorageTest {
                 position += bytesRead;
                 partNumber++;
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @Test
+    void getMultipartFileData() throws Exception {
+        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
+        String fileName = "test_registry.csv";
+        value.setStr(fileName);
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
+        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
+        assertNotNull(createResult.getFileDataId());
+        assertNotNull(createResult.getMultipartUploadId());
+
+        List<CompletedMultipart> completedParts = new ArrayList<>();
+        processMultipartUpload(createResult, completedParts);
 
         var completeRequest = new CompleteMultipartUploadRequest()
                 .setMultipartUploadId(createResult.getMultipartUploadId())
@@ -389,7 +418,11 @@ public abstract class FileStorageTest {
 
         CompleteMultipartUploadResult result = fileStorageClient.completeMultipartUpload(completeRequest);
 
-        assertNotNull(result);
-        assertNotNull(result.getUploadUrl());
+        FileData multipartFileData = fileStorageClient.getMultipartFileData(createResult.getFileDataId());
+
+        assertEquals(createResult.getFileDataId(), multipartFileData.getFileDataId());
+        assertEquals(fileName, multipartFileData.getFileName());
+        assertNotNull(multipartFileData.getCreatedAt());
+        assertNotNull(multipartFileData.getMetadata());
     }
 }

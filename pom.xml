@@ -30,7 +30,7 @@
         <dependency>
             <groupId>dev.vality</groupId>
             <artifactId>file-storage-proto</artifactId>
-            <version>1.46-442b17d</version>
+            <version>1.47-0f31e02</version>
         </dependency>
         <dependency>
             <groupId>dev.vality</groupId>
