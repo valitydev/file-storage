@@ -52,6 +52,18 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
     }
 
     @Override
+    public FileData getMultipartFileData(String fileDataId) throws TException {
+        try {
+            log.info("Receive request for get multipart file data with fileDataId={}", fileDataId);
+            FileData multipartFileData = storageService.getMultipartFileData(fileDataId);
+            log.info("Successfully get multipart file data with fileDataId={}", fileDataId);
+            return multipartFileData;
+        } catch (FileNotFoundException e) {
+            throw fileNotFound(e);
+        }
+    }
+
+    @Override
     public CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata) {
         log.info("Receive request for create multipart upload with metadata={}", metadata);
         CreateMultipartUploadResult result = storageService.createMultipartUpload(metadata);

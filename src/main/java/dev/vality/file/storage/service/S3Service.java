@@ -43,6 +43,7 @@ public class S3Service implements StorageService {
     private static final String CREATED_AT = "x-rbkmoney-created-at";
     private static final String METADATA = "x-rbkmoney-metadata-";
     private static final String FILENAME_PARAM = "filename=";
+    public static final String METHOD_NOT_SUPPORTED = "Method not supported";
 
     private final TransferManager transferManager;
     private final AmazonS3 s3Client;
@@ -114,18 +115,23 @@ public class S3Service implements StorageService {
     }
 
     @Override
+    public FileData getMultipartFileData(String fileDataId) {
+        throw new UnsupportedOperationException(METHOD_NOT_SUPPORTED);
+    }
+
+    @Override
     public CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata) {
-        throw new UnsupportedOperationException("Method not supported");
+        throw new UnsupportedOperationException(METHOD_NOT_SUPPORTED);
     }
 
     @Override
     public UploadMultipartResult uploadMultipart(UploadMultipartRequestData requestData) {
-        throw new UnsupportedOperationException("Method not supported");
+        throw new UnsupportedOperationException(METHOD_NOT_SUPPORTED);
     }
 
     @Override
     public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request) {
-        throw new UnsupportedOperationException("Method not supported");
+        throw new UnsupportedOperationException(METHOD_NOT_SUPPORTED);
     }
 
     @PreDestroy
