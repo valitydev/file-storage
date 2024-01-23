@@ -364,7 +364,8 @@ public abstract class FileStorageTest {
         assertNotNull(result.getUploadUrl());
     }
 
-    private void processMultipartUpload(CreateMultipartUploadResult createResult, List<CompletedMultipart> completedParts) throws URISyntaxException, TException {
+    private void processMultipartUpload(CreateMultipartUploadResult createResult,
+                                        List<CompletedMultipart> completedParts) throws URISyntaxException {
         int partNumber = 1;
         ByteBuffer buffer = ByteBuffer.allocate(5 * 1024 * 1024);
         Path path = getFileFromResources("test_registry.csv");
@@ -392,13 +393,13 @@ public abstract class FileStorageTest {
                 position += bytesRead;
                 partNumber++;
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     @Test
-    void getMultipartFileData()  throws Exception {
+    void getMultipartFileData() throws Exception {
         dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
         String fileName = "test_registry.csv";
         value.setStr(fileName);
