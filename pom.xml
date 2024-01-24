@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>file-storage</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <packaging>jar</packaging>
 
     <name>file-storage</name>
@@ -30,7 +30,7 @@
         <dependency>
             <groupId>dev.vality</groupId>
             <artifactId>file-storage-proto</artifactId>
-            <version>1.47-0f31e02</version>
+            <version>1.48-4569cea</version>
         </dependency>
         <dependency>
             <groupId>dev.vality</groupId>
