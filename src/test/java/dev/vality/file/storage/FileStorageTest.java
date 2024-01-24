@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -424,5 +425,31 @@ public abstract class FileStorageTest {
         assertEquals(fileName, multipartFileData.getFileName());
         assertNotNull(multipartFileData.getCreatedAt());
         assertNotNull(multipartFileData.getMetadata());
+    }
+
+    @Test
+    void generateMultipartDownloadUrl() throws Exception {
+        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
+        String fileName = "test_registry.csv";
+        value.setStr(fileName);
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
+        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
+        assertNotNull(createResult.getFileDataId());
+        assertNotNull(createResult.getMultipartUploadId());
+
+        List<CompletedMultipart> completedParts = new ArrayList<>();
+        processMultipartUpload(createResult, completedParts);
+
+        var completeRequest = new CompleteMultipartUploadRequest()
+                .setMultipartUploadId(createResult.getMultipartUploadId())
+                .setFileDataId(createResult.getFileDataId())
+                .setCompletedParts(completedParts);
+
+        fileStorageClient.completeMultipartUpload(completeRequest);
+
+        String expiredTime = Instant.now().toString();
+        String url = fileStorageClient.generateMultipartDownloadUrl(createResult.getFileDataId(), expiredTime);
+
+        assertNotNull(url);
     }
 }

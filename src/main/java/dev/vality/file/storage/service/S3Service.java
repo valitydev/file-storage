@@ -134,6 +134,11 @@ public class S3Service implements StorageService {
         throw new UnsupportedOperationException(METHOD_NOT_SUPPORTED);
     }
 
+    @Override
+    public URL generateMultipartDownloadUrl(String fileDataId, Instant expirationTime) {
+        throw new UnsupportedOperationException(METHOD_NOT_SUPPORTED);
+    }
+
     @PreDestroy
     public void terminate() {
         transferManager.shutdownNow(true);
