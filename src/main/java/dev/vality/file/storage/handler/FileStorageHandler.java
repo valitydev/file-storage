@@ -92,6 +92,22 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
         return result;
     }
 
+    @Override
+    public String generateMultipartDownloadUrl(String fileDataId, String expiresAt) throws TException {
+        try {
+            log.info("Receive request for generate download url with fileDataId={}", fileDataId);
+            CheckerUtil.checkString(fileDataId, "Bad request parameter, fileDataId required and not empty arg");
+            CheckerUtil.checkString(expiresAt, "Bad request parameter, expiresAt required and not empty arg");
+            Instant instant = TypeUtil.stringToInstant(expiresAt);
+            URL url = storageService.generateMultipartDownloadUrl(fileDataId, instant);
+            log.info("Successfully generate download url with fileDataId={}", fileDataId);
+            log.debug("Generated download url={}", url);
+            return url.toString();
+        } catch (FileNotFoundException e) {
+            throw fileNotFound(e);
+        }
+    }
+
     private FileNotFound fileNotFound(FileNotFoundException e) {
         log.warn("File not found", e);
         return new FileNotFound();

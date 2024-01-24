@@ -20,6 +20,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import javax.annotation.PostConstruct;
@@ -66,18 +67,7 @@ public class S3V2Service implements StorageService {
         var versions = getObjectVersions(fileId);
         checkFileExist(fileId, versions);
         var fileVersionId = getFileVersionId(fileId, versions);
-        var presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.between(Instant.now(), expirationTime))
-                .getObjectRequest(GetObjectRequest.builder()
-                        .bucket(s3SdkV2Properties.getBucketName())
-                        .key(fileId)
-                        .versionId(fileVersionId)
-                        .build())
-                .build();
-        var presignedRequest = s3Presigner.presignGetObject(presignRequest);
-        log.info("Download url was presigned, fileId={}, bucketName={}, isBrowserExecutable={}",
-                fileId, s3SdkV2Properties.getBucketName(), presignedRequest.isBrowserExecutable());
-        log.debug("Presigned http request={}", presignedRequest.httpRequest().toString());
+        PresignedGetObjectRequest presignedRequest = getPresignedRequest(fileId, expirationTime, fileVersionId);
         return presignedRequest.url();
     }
 
@@ -508,6 +498,36 @@ public class S3V2Service implements StorageService {
                             fileId, s3SdkV2Properties.getBucketName(), multipartUploadId),
                     ex);
         }
+    }
+
+    @Override
+    public URL generateMultipartDownloadUrl(String fileId, Instant expirationTime) {
+        var versions = getObjectVersions(fileId);
+        if (CollectionUtils.isEmpty(versions)) {
+            throw new FileNotFoundException(String.format(
+                    "Failed to check object version with file on exist, fileId=%s, bucketName=%s ",
+                    fileId,
+                    s3SdkV2Properties.getBucketName()));
+        }
+        var fileVersionId = getFileVersionId(fileId, versions);
+        PresignedGetObjectRequest presignedRequest = getPresignedRequest(fileId, expirationTime, fileVersionId);
+        return presignedRequest.url();
+    }
+
+    private PresignedGetObjectRequest getPresignedRequest(String fileId, Instant expirationTime, String fileVersionId) {
+        var presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.between(Instant.now(), expirationTime))
+                .getObjectRequest(GetObjectRequest.builder()
+                        .bucket(s3SdkV2Properties.getBucketName())
+                        .key(fileId)
+                        .versionId(fileVersionId)
+                        .build())
+                .build();
+        var presignedRequest = s3Presigner.presignGetObject(presignRequest);
+        log.info("Download url was presigned, fileId={}, bucketName={}, isBrowserExecutable={}",
+                fileId, s3SdkV2Properties.getBucketName(), presignedRequest.isBrowserExecutable());
+        log.debug("Presigned http request={}", presignedRequest.httpRequest().toString());
+        return presignedRequest;
     }
 
     private software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest buildRequest(

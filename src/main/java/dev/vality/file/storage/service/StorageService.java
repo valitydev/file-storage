@@ -23,4 +23,6 @@ public interface StorageService {
 
     CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request);
 
+    URL generateMultipartDownloadUrl(String fileDataId, Instant expirationTime);
+
 }
