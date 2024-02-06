@@ -25,6 +25,8 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 
 import javax.annotation.PostConstruct;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -201,10 +203,7 @@ public class S3V2Service implements StorageService {
 
     private void uploadFileMetadata(Map<String, Value> metadata, String fileId) {
         try {
-            var s3Metadata = new HashMap<String, String>();
-            s3Metadata.put(FILE_ID, fileId);
-            s3Metadata.put(CREATED_AT, Instant.now().toString());
-            metadata.forEach((key, value) -> s3Metadata.put(METADATA + key, DamselUtil.toJsonString(value)));
+            HashMap<String, String> s3Metadata = buildS3Metadata(metadata, fileId);
             var request = PutObjectRequest.builder()
                     .bucket(s3SdkV2Properties.getBucketName())
                     .key(fileId)
@@ -395,16 +394,19 @@ public class S3V2Service implements StorageService {
 
     @Override
     public CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata) {
+        if (!metadata.containsKey(FILENAME_METADATA)) {
+            throw new StorageException("Can't create multipart upload object without fileName");
+        }
         var fileId = UUID.randomUUID().toString();
+        uploadFileMetadata(metadata, fileId);
         try {
-            var s3Metadata = new HashMap<String, String>();
-            s3Metadata.put(FILE_ID, fileId);
-            s3Metadata.put(CREATED_AT, Instant.now().toString());
-            metadata.forEach((key, value) -> s3Metadata.put(METADATA + key, DamselUtil.toJsonString(value)));
+            HashMap<String, String> s3Metadata = buildS3Metadata(metadata, fileId);
+            String filename = URLEncoder.encode(metadata.get(FILENAME_METADATA).getStr(), StandardCharsets.UTF_8);
             var createRequest = CreateMultipartUploadRequest.builder()
                     .bucket(s3SdkV2Properties.getBucketName())
                     .key(fileId)
                     .metadata(s3Metadata)
+                    .contentDisposition("attachment;filename=" + filename)
                     .build();
             CreateMultipartUploadResponse createResponse = s3SdkV2Client.createMultipartUpload(createRequest);
             var response = createResponse.sdkHttpResponse();
@@ -427,6 +429,14 @@ public class S3V2Service implements StorageService {
                             fileId, s3SdkV2Properties.getBucketName()),
                     ex);
         }
+    }
+
+    private static HashMap<String, String> buildS3Metadata(Map<String, Value> metadata, String fileId) {
+        var s3Metadata = new HashMap<String, String>();
+        s3Metadata.put(FILE_ID, fileId);
+        s3Metadata.put(CREATED_AT, Instant.now().toString());
+        metadata.forEach((key, value) -> s3Metadata.put(METADATA + key, DamselUtil.toJsonString(value)));
+        return s3Metadata;
     }
 
     @Override
