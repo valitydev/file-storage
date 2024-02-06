@@ -1,5 +1,7 @@
 package dev.vality.file.storage;
 
+import dev.vality.file.storage.service.exception.StorageException;
+import dev.vality.woody.api.flow.error.WRuntimeException;
 import dev.vality.woody.thrift.impl.http.THSpawnClientBuilder;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -35,6 +37,8 @@ import java.util.concurrent.Executors;
 
 import static dev.vality.msgpack.Value.*;
 import static dev.vality.testcontainers.annotations.util.ValuesGenerator.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -347,7 +351,15 @@ public abstract class FileStorageTest {
 
     @Test
     public void multipartUploadTest() throws Exception {
-        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(Collections.emptyMap());
+        var exception = assertThrows(WRuntimeException.class,
+                () -> fileStorageClient.createMultipartUpload(Collections.emptyMap()));
+        assertThat(exception.getErrorDefinition().getErrorReason(),
+                containsString("Can't create multipart upload object without fileName"));
+
+
+        dev.vality.msgpack.Value fileName = str("fileName");
+        var metadata = Map.of("filename", fileName);
+        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
         assertNotNull(createResult.getFileDataId());
         assertNotNull(createResult.getMultipartUploadId());
 
@@ -419,7 +431,7 @@ public abstract class FileStorageTest {
 
         CompleteMultipartUploadResult result = fileStorageClient.completeMultipartUpload(completeRequest);
 
-        FileData multipartFileData = fileStorageClient.getMultipartFileData(createResult.getFileDataId());
+        FileData multipartFileData = fileStorageClient.getFileData(createResult.getFileDataId());
 
         assertEquals(createResult.getFileDataId(), multipartFileData.getFileDataId());
         assertEquals(fileName, multipartFileData.getFileName());
@@ -448,7 +460,7 @@ public abstract class FileStorageTest {
         fileStorageClient.completeMultipartUpload(completeRequest);
 
         String expiredTime = Instant.now().toString();
-        String url = fileStorageClient.generateMultipartDownloadUrl(createResult.getFileDataId(), expiredTime);
+        String url = fileStorageClient.generateDownloadUrl(createResult.getFileDataId(), expiredTime);
 
         assertNotNull(url);
     }
