@@ -51,7 +51,11 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
         }
     }
 
+    /**
+     * @deprecated
+     */
     @Override
+    @Deprecated
     public FileData getMultipartFileData(String fileDataId) throws TException {
         try {
             log.info("Receive request for get multipart file data with fileDataId={}", fileDataId);
@@ -92,7 +96,11 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
         return result;
     }
 
+    /**
+     * @deprecated
+     */
     @Override
+    @Deprecated
     public String generateMultipartDownloadUrl(String fileDataId, String expiresAt) throws TException {
         try {
             log.info("Receive request for generate download url with fileDataId={}", fileDataId);
