@@ -2,13 +2,14 @@ package dev.vality.file.storage;
 
 import dev.vality.woody.api.flow.error.WRuntimeException;
 import dev.vality.woody.thrift.impl.http.THSpawnClientBuilder;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
+import org.apache.http.HttpEntity;
+import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.FileEntity;
-import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.AbstractResponseHandler;
+import org.apache.http.impl.client.BasicResponseHandler;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.apache.thrift.TException;
@@ -19,7 +20,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
@@ -33,7 +36,6 @@ import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static dev.vality.msgpack.Value.*;
@@ -66,31 +68,16 @@ public abstract class FileStorageTest {
 
     @Test
     public void fileUploadWithHttpClientBuilderTest() throws IOException, URISyntaxException, TException {
-        String expirationTime = generateCurrentTimePlusDay().toString();
-        Map<String, dev.vality.msgpack.Value> metadata = new HashMap<>();
+        var expirationTime = generateCurrentTimePlusDay().toString();
+        var metadata = new HashMap<String, dev.vality.msgpack.Value>();
         metadata.put("author", dev.vality.msgpack.Value.str("Mary Doe"));
         metadata.put("version", dev.vality.msgpack.Value.str("1.0.0.0"));
-
-        NewFileResult fileResult = fileStorageClient.createNewFile(metadata, expirationTime);
-
-        Path path = getFileFromResources("respect");
-
-        HttpPut requestPut = new HttpPut(fileResult.getUploadUrl());
-        requestPut.setHeader(
-                "Content-Disposition",
-                "attachment;filename=" + URLEncoder.encode(FILE_NAME, StandardCharsets.UTF_8.name()));
-        requestPut.setEntity(new FileEntity(path.toFile()));
-
-        HttpClient httpClient = HttpClientBuilder.create().build();
-        HttpResponse response = httpClient.execute(requestPut);
-        assertEquals(response.getStatusLine().getStatusCode(), org.apache.http.HttpStatus.SC_OK);
-
+        var fileResult = fileStorageClient.createNewFile(metadata, expirationTime);
+        var path = getFileFromResources("respect");
+        uploadTestData(fileResult, FILE_NAME, path);
         // генерация url с доступом только для загрузки
-        String downloadUrl = fileStorageClient.generateDownloadUrl(fileResult.getFileDataId(), expirationTime);
-
-        HttpResponse responseGet = httpClient.execute(new HttpGet(downloadUrl));
-        InputStream content = responseGet.getEntity().getContent();
-        assertEquals(getContent(Files.newInputStream(path)), getContent(content));
+        var downloadUrl = fileStorageClient.generateDownloadUrl(fileResult.getFileDataId(), expirationTime);
+        downloadTestData(downloadUrl, path);
     }
 
     @Test
@@ -106,7 +93,7 @@ public abstract class FileStorageTest {
             metadata.put("author", dev.vality.msgpack.Value.str("Mary Doe"));
             metadata.put("version", dev.vality.msgpack.Value.str("1.0.0.0"));
             NewFileResult fileResult = fileStorageClient.createNewFile(metadata, expirationTime);
-            uploadTestData(fileResult, FILE_NAME, FILE_DATA);
+            uploadTestData(fileResult, FILE_NAME);
 
             // генерация url с доступом только для загрузки
             URL downloadUrl = new URL(
@@ -156,7 +143,7 @@ public abstract class FileStorageTest {
                 HttpStatus.FORBIDDEN.value(),
                 getHttpURLConnection(uploadUrl, "GET", false).getResponseCode());
 
-        uploadTestData(fileResult, FILE_NAME, FILE_DATA);
+        uploadTestData(fileResult, FILE_NAME);
     }
 
     @Test
@@ -168,7 +155,7 @@ public abstract class FileStorageTest {
         String fileDataId = fileResult.getFileDataId();
 
         // upload тестовых данных в хранилище
-        uploadTestData(fileResult, FILE_NAME, FILE_DATA);
+        uploadTestData(fileResult, FILE_NAME);
 
         // генерация url с доступом только для загрузки
         URL url = new URL(fileStorageClient.generateDownloadUrl(fileDataId, expirationTime));
@@ -192,7 +179,7 @@ public abstract class FileStorageTest {
         Thread.sleep(1000);
 
         // сохранение тестовых данных в хранилище
-        uploadTestData(validFileResult, FILE_NAME, FILE_DATA);
+        uploadTestData(validFileResult, FILE_NAME);
 
         // доступ есть
         fileStorageClient.getFileData(validFileDataId);
@@ -216,7 +203,7 @@ public abstract class FileStorageTest {
         Thread.sleep(2000);
 
         // сохранение тестовых данных в хранилище вызывает ошибку доступа
-        assertThrows(AssertionError.class, () -> uploadTestData(throwingFileResult, FILE_NAME, FILE_DATA));
+        assertThrows(HttpResponseException.class, () -> uploadTestData(throwingFileResult, FILE_NAME));
 
         // ошибка доступа
         assertThrows(FileNotFound.class, () -> fileStorageClient.getFileData(throwingFileDataId));
@@ -237,7 +224,7 @@ public abstract class FileStorageTest {
                 "key6", bin(new byte[]{}));
 
         NewFileResult fileResult = fileStorageClient.createNewFile(metadata, expirationTime);
-        uploadTestData(fileResult, FILE_NAME, FILE_DATA);
+        uploadTestData(fileResult, FILE_NAME);
 
         FileData fileData = fileStorageClient.getFileData(fileResult.getFileDataId());
 
@@ -252,7 +239,7 @@ public abstract class FileStorageTest {
 
         // upload тестовых данных в хранилище
         String fileName = "csgo-лучше-чем-1.6";
-        uploadTestData(fileResult, fileName, FILE_DATA);
+        uploadTestData(fileResult, fileName);
 
         FileData fileData = fileStorageClient.getFileData(fileResult.getFileDataId());
 
@@ -263,31 +250,15 @@ public abstract class FileStorageTest {
 
     @Test
     public void s3ConnectionPoolTest() throws Exception {
-        String expirationTime = generateCurrentTimePlusDay().toString();
-        HttpClient httpClient = HttpClientBuilder.create().build();
-
-        NewFileResult fileResult = fileStorageClient.createNewFile(Collections.emptyMap(), expirationTime);
-
-        Path path = getFileFromResources("respect");
-
-        HttpPut requestPut = new HttpPut(fileResult.getUploadUrl());
-        requestPut.setHeader(
-                "Content-Disposition",
-                "attachment;filename=" + URLEncoder.encode(FILE_NAME, StandardCharsets.UTF_8.name()));
-        requestPut.setEntity(new FileEntity(path.toFile()));
-
-        HttpResponse response = httpClient.execute(requestPut);
-        assertEquals(response.getStatusLine().getStatusCode(), org.apache.http.HttpStatus.SC_OK);
-
+        var expirationTime = generateCurrentTimePlusDay().toString();
+        var fileResult = fileStorageClient.createNewFile(Collections.emptyMap(), expirationTime);
+        var path = getFileFromResources("respect");
+        uploadTestData(fileResult, FILE_NAME, path);
         // генерация url с доступом только для загрузки
-        String downloadUrl = fileStorageClient.generateDownloadUrl(fileResult.getFileDataId(), expirationTime);
-
-        HttpResponse responseGet = httpClient.execute(new HttpGet(downloadUrl));
-        InputStream content = responseGet.getEntity().getContent();
-        assertEquals(getContent(Files.newInputStream(path)), getContent(content));
-
-        CountDownLatch countDownLatch = new CountDownLatch(1000);
-        ExecutorService executor = Executors.newFixedThreadPool(5);
+        var downloadUrl = fileStorageClient.generateDownloadUrl(fileResult.getFileDataId(), expirationTime);
+        downloadTestData(downloadUrl, path);
+        var countDownLatch = new CountDownLatch(1000);
+        var executor = Executors.newFixedThreadPool(5);
         for (int i = 0; i < 1000; i++) {
             executor.execute(
                     () -> {
@@ -300,7 +271,6 @@ public abstract class FileStorageTest {
                     }
             );
         }
-
         countDownLatch.await();
         assertTrue(true);
     }
@@ -311,7 +281,6 @@ public abstract class FileStorageTest {
                 () -> fileStorageClient.createMultipartUpload(Collections.emptyMap()));
         assertThat(exception.getErrorDefinition().getErrorReason(),
                 containsString("Can't create multipart upload object without fileName"));
-
 
         dev.vality.msgpack.Value fileName = str("fileName");
         var metadata = Map.of("filename", fileName);
@@ -351,7 +320,7 @@ public abstract class FileStorageTest {
                 .setFileDataId(createResult.getFileDataId())
                 .setCompletedParts(completedParts);
 
-        CompleteMultipartUploadResult result = fileStorageClient.completeMultipartUpload(completeRequest);
+        fileStorageClient.completeMultipartUpload(completeRequest);
 
         FileData multipartFileData = fileStorageClient.getFileData(createResult.getFileDataId());
 
@@ -387,25 +356,70 @@ public abstract class FileStorageTest {
         assertNotNull(url);
     }
 
-    private void uploadTestData(NewFileResult fileResult, String fileName, String testData) throws IOException {
+    private void uploadTestData(NewFileResult fileResult, String fileName, Path testData) throws IOException {
+        uploadTestData(fileResult, fileName, new FileEntity(testData.toFile()));
+    }
+
+    private void uploadTestData(NewFileResult fileResult, String fileName) throws IOException {
+        uploadTestData(fileResult, fileName, new ByteArrayEntity(FILE_DATA.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private void uploadTestData(NewFileResult fileResult, String fileName, HttpEntity testData) throws IOException {
         // запись данных методом put
         try (var client = HttpClients.createDefault()) {
             var requestPut = new HttpPut(fileResult.getUploadUrl());
             var encode = URLEncoder.encode(fileName, StandardCharsets.UTF_8);
             requestPut.setHeader("Content-Disposition", "attachment;filename=" + encode);
-            requestPut.setEntity(new ByteArrayEntity(testData.getBytes(StandardCharsets.UTF_8)));
-            try (var response = client.execute(requestPut)) {
-                var httpEntity = response.getEntity();
-                assertEquals(HttpStatus.OK.value(), response.getStatusLine().getStatusCode());
-                EntityUtils.consume(httpEntity);
-            }
+            requestPut.setEntity(testData);
+            client.execute(requestPut, new BasicResponseHandler());
+        }
+    }
+
+    private void downloadTestData(String downloadUrl, Path expected) throws IOException {
+        try (var client = HttpClients.createDefault()) {
+            var content = client.execute(
+                    new HttpGet(downloadUrl),
+                    new AbstractResponseHandler<Path>() {
+                        @Override
+                        public Path handleEntity(HttpEntity entity) throws IOException {
+                            var inputFile = Files.createTempFile(generateId(), "");
+                            try (var outstream = new FileOutputStream(inputFile.toFile())) {
+                                entity.writeTo(outstream);
+                                return inputFile;
+                            }
+                        }
+                    });
+            assertTrue(FileUtils.contentEquals(expected.toFile(), content.toFile()));
+            assertArrayEquals(Files.readAllBytes(expected), Files.readAllBytes(content));
+            content = client.execute(
+                    new HttpGet(downloadUrl),
+                    new AbstractResponseHandler<>() {
+                        @Override
+                        public Path handleEntity(HttpEntity entity) throws IOException {
+                            var inputFile = Files.createTempFile(generateId(), "");
+                            try (InputStream source = entity.getContent()) {
+                                FileUtils.copyInputStreamToFile(source, inputFile.toFile());
+                                return inputFile;
+                            }
+                        }
+                    });
+            assertTrue(FileUtils.contentEquals(expected.toFile(), content.toFile()));
+            assertArrayEquals(Files.readAllBytes(expected), Files.readAllBytes(content));
+            var contentByte = client.execute(
+                    new HttpGet(downloadUrl),
+                    new AbstractResponseHandler<byte[]>() {
+                        @Override
+                        public byte[] handleEntity(HttpEntity entity) throws IOException {
+                            return EntityUtils.toByteArray(entity);
+                        }
+                    });
+            assertArrayEquals(Files.readAllBytes(expected), contentByte);
         }
     }
 
     private Path getFileFromResources(String name) throws URISyntaxException {
-        ClassLoader classLoader = this.getClass().getClassLoader();
-
-        URL url = Objects.requireNonNull(classLoader.getResource(name));
+        var classLoader = this.getClass().getClassLoader();
+        var url = Objects.requireNonNull(classLoader.getResource(name));
         return Paths.get(url.toURI());
     }
 
@@ -415,13 +429,12 @@ public abstract class FileStorageTest {
 
     private static HttpURLConnection getHttpURLConnection(URL url, String method, String fileName, boolean doOutput)
             throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        var connection = (HttpURLConnection) url.openConnection();
         connection.setDoOutput(doOutput);
         connection.setRequestMethod(method);
         if (fileName != null) {
-            connection.setRequestProperty(
-                    "Content-Disposition",
-                    "attachment;filename=" + URLEncoder.encode(fileName, StandardCharsets.UTF_8.name()));
+            var encode = URLEncoder.encode(fileName, StandardCharsets.UTF_8);
+            connection.setRequestProperty("Content-Disposition", "attachment;filename=" + encode);
         }
         return connection;
     }
