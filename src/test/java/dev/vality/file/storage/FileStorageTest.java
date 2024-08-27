@@ -1,14 +1,16 @@
 package dev.vality.file.storage;
 
-import dev.vality.file.storage.service.exception.StorageException;
 import dev.vality.woody.api.flow.error.WRuntimeException;
 import dev.vality.woody.thrift.impl.http.THSpawnClientBuilder;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.apache.thrift.TException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +22,6 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -304,51 +305,6 @@ public abstract class FileStorageTest {
         assertTrue(true);
     }
 
-    private void uploadTestData(NewFileResult fileResult, String fileName, String testData) throws IOException {
-        // запись данных методом put
-        URL uploadUrl = new URL(fileResult.getUploadUrl());
-
-        HttpURLConnection uploadUrlConnection = getHttpURLConnection(uploadUrl, "PUT", fileName, true);
-
-        OutputStreamWriter out = new OutputStreamWriter(uploadUrlConnection.getOutputStream());
-        out.write(testData);
-        out.close();
-
-        // чтобы завершить загрузку вызываем getResponseCode
-        assertEquals(HttpStatus.OK.value(), uploadUrlConnection.getResponseCode());
-    }
-
-    private Path getFileFromResources() throws URISyntaxException {
-        ClassLoader classLoader = this.getClass().getClassLoader();
-
-        URL url = Objects.requireNonNull(classLoader.getResource("respect"));
-        return Paths.get(url.toURI());
-    }
-
-    private Path getFileFromResources(String name) throws URISyntaxException {
-        ClassLoader classLoader = this.getClass().getClassLoader();
-
-        URL url = Objects.requireNonNull(classLoader.getResource(name));
-        return Paths.get(url.toURI());
-    }
-
-    public static HttpURLConnection getHttpURLConnection(URL url, String method, boolean doOutput) throws IOException {
-        return getHttpURLConnection(url, method, null, doOutput);
-    }
-
-    public static HttpURLConnection getHttpURLConnection(URL url, String method, String fileName, boolean doOutput)
-            throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setDoOutput(doOutput);
-        connection.setRequestMethod(method);
-        if (fileName != null) {
-            connection.setRequestProperty(
-                    "Content-Disposition",
-                    "attachment;filename=" + URLEncoder.encode(fileName, StandardCharsets.UTF_8.name()));
-        }
-        return connection;
-    }
-
     @Test
     public void multipartUploadTest() throws Exception {
         var exception = assertThrows(WRuntimeException.class,
@@ -375,6 +331,99 @@ public abstract class FileStorageTest {
 
         assertNotNull(result);
         assertNotNull(result.getUploadUrl());
+    }
+
+    @Test
+    public void getMultipartFileData() throws Exception {
+        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
+        String fileName = "test_registry.csv";
+        value.setStr(fileName);
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
+        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
+        assertNotNull(createResult.getFileDataId());
+        assertNotNull(createResult.getMultipartUploadId());
+
+        List<CompletedMultipart> completedParts = new ArrayList<>();
+        processMultipartUpload(createResult, completedParts);
+
+        var completeRequest = new CompleteMultipartUploadRequest()
+                .setMultipartUploadId(createResult.getMultipartUploadId())
+                .setFileDataId(createResult.getFileDataId())
+                .setCompletedParts(completedParts);
+
+        CompleteMultipartUploadResult result = fileStorageClient.completeMultipartUpload(completeRequest);
+
+        FileData multipartFileData = fileStorageClient.getFileData(createResult.getFileDataId());
+
+        assertEquals(createResult.getFileDataId(), multipartFileData.getFileDataId());
+        assertEquals(fileName, multipartFileData.getFileName());
+        assertNotNull(multipartFileData.getCreatedAt());
+        assertNotNull(multipartFileData.getMetadata());
+    }
+
+    @Test
+    public void generateMultipartDownloadUrl() throws Exception {
+        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
+        String fileName = "test_registry.csv";
+        value.setStr(fileName);
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
+        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
+        assertNotNull(createResult.getFileDataId());
+        assertNotNull(createResult.getMultipartUploadId());
+
+        List<CompletedMultipart> completedParts = new ArrayList<>();
+        processMultipartUpload(createResult, completedParts);
+
+        var completeRequest = new CompleteMultipartUploadRequest()
+                .setMultipartUploadId(createResult.getMultipartUploadId())
+                .setFileDataId(createResult.getFileDataId())
+                .setCompletedParts(completedParts);
+
+        fileStorageClient.completeMultipartUpload(completeRequest);
+
+        String expiredTime = Instant.now().toString();
+        String url = fileStorageClient.generateDownloadUrl(createResult.getFileDataId(), expiredTime);
+
+        assertNotNull(url);
+    }
+
+    private void uploadTestData(NewFileResult fileResult, String fileName, String testData) throws IOException {
+        // запись данных методом put
+        try (var client = HttpClients.createDefault()) {
+            var requestPut = new HttpPut(fileResult.getUploadUrl());
+            var encode = URLEncoder.encode(fileName, StandardCharsets.UTF_8);
+            requestPut.setHeader("Content-Disposition", "attachment;filename=" + encode);
+            requestPut.setEntity(new ByteArrayEntity(testData.getBytes(StandardCharsets.UTF_8)));
+            try (var response = client.execute(requestPut)) {
+                var httpEntity = response.getEntity();
+                assertEquals(HttpStatus.OK.value(), response.getStatusLine().getStatusCode());
+                EntityUtils.consume(httpEntity);
+            }
+        }
+    }
+
+    private Path getFileFromResources(String name) throws URISyntaxException {
+        ClassLoader classLoader = this.getClass().getClassLoader();
+
+        URL url = Objects.requireNonNull(classLoader.getResource(name));
+        return Paths.get(url.toURI());
+    }
+
+    private static HttpURLConnection getHttpURLConnection(URL url, String method, boolean doOutput) throws IOException {
+        return getHttpURLConnection(url, method, null, doOutput);
+    }
+
+    private static HttpURLConnection getHttpURLConnection(URL url, String method, String fileName, boolean doOutput)
+            throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setDoOutput(doOutput);
+        connection.setRequestMethod(method);
+        if (fileName != null) {
+            connection.setRequestProperty(
+                    "Content-Disposition",
+                    "attachment;filename=" + URLEncoder.encode(fileName, StandardCharsets.UTF_8.name()));
+        }
+        return connection;
     }
 
     private void processMultipartUpload(CreateMultipartUploadResult createResult,
@@ -409,59 +458,5 @@ public abstract class FileStorageTest {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    @Test
-    void getMultipartFileData() throws Exception {
-        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
-        String fileName = "test_registry.csv";
-        value.setStr(fileName);
-        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
-        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
-        assertNotNull(createResult.getFileDataId());
-        assertNotNull(createResult.getMultipartUploadId());
-
-        List<CompletedMultipart> completedParts = new ArrayList<>();
-        processMultipartUpload(createResult, completedParts);
-
-        var completeRequest = new CompleteMultipartUploadRequest()
-                .setMultipartUploadId(createResult.getMultipartUploadId())
-                .setFileDataId(createResult.getFileDataId())
-                .setCompletedParts(completedParts);
-
-        CompleteMultipartUploadResult result = fileStorageClient.completeMultipartUpload(completeRequest);
-
-        FileData multipartFileData = fileStorageClient.getFileData(createResult.getFileDataId());
-
-        assertEquals(createResult.getFileDataId(), multipartFileData.getFileDataId());
-        assertEquals(fileName, multipartFileData.getFileName());
-        assertNotNull(multipartFileData.getCreatedAt());
-        assertNotNull(multipartFileData.getMetadata());
-    }
-
-    @Test
-    void generateMultipartDownloadUrl() throws Exception {
-        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
-        String fileName = "test_registry.csv";
-        value.setStr(fileName);
-        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
-        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
-        assertNotNull(createResult.getFileDataId());
-        assertNotNull(createResult.getMultipartUploadId());
-
-        List<CompletedMultipart> completedParts = new ArrayList<>();
-        processMultipartUpload(createResult, completedParts);
-
-        var completeRequest = new CompleteMultipartUploadRequest()
-                .setMultipartUploadId(createResult.getMultipartUploadId())
-                .setFileDataId(createResult.getFileDataId())
-                .setCompletedParts(completedParts);
-
-        fileStorageClient.completeMultipartUpload(completeRequest);
-
-        String expiredTime = Instant.now().toString();
-        String url = fileStorageClient.generateDownloadUrl(createResult.getFileDataId(), expiredTime);
-
-        assertNotNull(url);
     }
 }
