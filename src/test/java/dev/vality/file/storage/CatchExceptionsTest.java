@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.test.web.server.LocalServerPort;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -26,10 +26,10 @@ public class CatchExceptionsTest {
     @LocalServerPort
     protected int port;
 
-    @MockBean
+    @MockitoBean
     private TransferManager transferManager;
 
-    @MockBean
+    @MockitoBean
     private AmazonS3 s3Client;
 
     @Test

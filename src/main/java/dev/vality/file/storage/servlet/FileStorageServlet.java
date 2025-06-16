@@ -4,8 +4,8 @@ import dev.vality.file.storage.FileStorageSrv;
 import dev.vality.woody.thrift.impl.http.THServiceBuilder;
 import lombok.RequiredArgsConstructor;
 
-import javax.servlet.*;
-import javax.servlet.annotation.WebServlet;
+import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebServlet;
 import java.io.IOException;
 
 @WebServlet("/file_storage/v2")
