@@ -6,7 +6,7 @@
     <parent>
         <groupId>dev.vality</groupId>
         <artifactId>service-parent-pom</artifactId>
-        <version>2.1.5</version>
+        <version>3.1.1</version>
     </parent>
 
     <artifactId>file-storage</artifactId>
@@ -86,16 +86,8 @@
             <version>2.20.48</version>
         </dependency>
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>javax.xml.bind</groupId>
-            <artifactId>jaxb-api</artifactId>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
         </dependency>
 
         <!-- Test libs -->
@@ -107,7 +99,7 @@
         <dependency>
             <groupId>dev.vality</groupId>
             <artifactId>testcontainers-annotations</artifactId>
-            <version>2.0.2</version>
+            <version>3.0.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
