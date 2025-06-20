@@ -1,10 +1,10 @@
 package dev.vality.file.storage.s3signer;
 
 import dev.vality.file.storage.FileStorageTest;
-import dev.vality.testcontainers.annotations.ceph.CephTestcontainerSingleton;
+import dev.vality.testcontainers.annotations.minio.MinioTestcontainerSingleton;
 import org.junit.jupiter.api.Disabled;
 
 @Disabled
-@CephTestcontainerSingleton(bucketName = "s3signer")
+@MinioTestcontainerSingleton(bucketName = "s3signer")
 public class WithCephTest extends FileStorageTest {
 }
