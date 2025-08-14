@@ -6,11 +6,11 @@
     <parent>
         <groupId>dev.vality</groupId>
         <artifactId>service-parent-pom</artifactId>
-        <version>3.1.1</version>
+        <version>3.1.6</version>
     </parent>
 
     <artifactId>file-storage</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>file-storage</name>
@@ -99,7 +99,7 @@
         <dependency>
             <groupId>dev.vality</groupId>
             <artifactId>testcontainers-annotations</artifactId>
-            <version>3.0.1</version>
+            <version>3.3.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
