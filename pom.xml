@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>file-storage</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>file-storage</name>
@@ -78,12 +78,12 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.12.451</version>
+            <version>1.12.788</version>
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
-            <version>2.20.48</version>
+            <version>2.32.31</version>
         </dependency>
         <dependency>
             <groupId>jakarta.servlet</groupId>
@@ -134,12 +134,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-remote-resources-plugin</artifactId>
-                <version>3.0.0</version>
+                <version>3.3.0</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.apache.maven.shared</groupId>
                         <artifactId>maven-filtering</artifactId>
-                        <version>3.3.1</version>
+                        <version>3.4.0</version>
                     </dependency>
                 </dependencies>
                 <configuration>
