@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>file-storage</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>file-storage</name>
@@ -99,7 +99,7 @@
         <dependency>
             <groupId>dev.vality</groupId>
             <artifactId>testcontainers-annotations</artifactId>
-            <version>3.3.2</version>
+            <version>4.1.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
