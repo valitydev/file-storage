@@ -5,6 +5,8 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+
 @Getter
 @Setter
 @Component
@@ -16,5 +18,6 @@ public class S3SdkV2Properties {
     private String region;
     private String accessKey;
     private String secretKey;
+    private Duration multipartUrlTtl = Duration.ofHours(1);
 
 }

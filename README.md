@@ -1,11 +1,52 @@
 # file-storage
 
-Сервис, обращающийся напрямую к s3 через AWS JAVA SDK. Используется для генерации pre-signed URL that can be used to
-access an Amazon S3 resource without requiring the user of the URL to know the account's AWS security credentials.
+`file-storage` — сервис для хранения файлов поверх S3-совместимого object storage.
+Сервис выступает как orchestration/control-plane над бакетом:
 
-## Параметры запуска
+- создаёт идентификаторы файлов;
+- сохраняет и читает metadata;
+- выдаёт pre-signed URL для upload/download;
+- поддерживает multipart upload.
 
-Для работы с 2 версией `AWS SDK S3 V2`
+Сервис ориентирован на S3-compatible backends, в тестах используются MinIO и Ceph.
+
+## Что умеет
+
+- Single upload через pre-signed `PUT URL`
+- Download через pre-signed `GET URL`
+- Получение `FileData` по `fileDataId`
+- Multipart upload в двух режимах:
+    - legacy data-plane flow через thrift
+    - direct-to-S3 presigned multipart flow со статусом загрузки
+
+## API
+
+Сервис поднимает два thrift endpoint:
+
+- `/file_storage/v2`
+  Основной совместимый API для single upload, download, metadata и legacy multipart flow.
+- `/file_storage/presigned-multipart/v1`
+  Отдельный API для presigned multipart upload, где части загружаются напрямую в S3-compatible storage.
+
+Точные контракты находятся в артефакте `file-storage-proto`.
+
+Для presigned multipart flow публичный lifecycle выглядит так:
+
+- `CreateMultipartUpload` — открыть multipart-сессию и получить её состояние
+- `GetMultipartUpload` — получить текущее состояние multipart-сессии
+- `PresignMultipartUploadPart` — получить URL и обязательные headers для загрузки части
+- `CompleteMultipartUpload` — завершить multipart upload по списку `etag + sequence_part`
+- `AbortMultipartUpload` — прервать multipart upload
+
+Новый multipart API возвращает статус загрузки:
+
+- `pending_upload`
+- `uploaded`
+- `aborted`
+
+## Конфигурация
+
+Основные параметры задаются через `application.yml`:
 
 ```yaml
 s3-sdk-v2:
@@ -14,29 +55,31 @@ s3-sdk-v2:
   region: 'RU'
   access-key: 'minio'
   secret-key: 'minio123'
+  multipart-url-ttl: '1h'
 ```
 
-## Minio
+Что означают параметры:
 
-Если сервисом используется 2 версия `AWS SDK S3 V2`, и в качестве s3 кластера используется `minio`, то для поддержки
-версионирования объектов __кластер должен использовать минимум несколько драйверов при старте__ для включения
-механизма `Erasure Code`
+- `endpoint` — URL S3-compatible storage
+- `bucket-name` — бакет, в котором сервис хранит файлы и metadata
+- `region` — S3 region
+- `access-key` / `secret-key` — credentials для доступа к storage
+- `multipart-url-ttl` — TTL для presigned URL на multipart parts
 
-Для включения механизма `Erasure Code` запуск сервера `minio` с использованием нескольких драйверов может выглядеть
-следующим образом
+Сервис сам создаёт бакет и включает versioning, если это поддерживается backend-ом.
 
-```shell
-minio server /data{1...12}
-```
+## Metadata Model
 
-Цитата из официальной документации
-> **Versioning feature is only available in erasure coded and distributed erasure coded setups.**
+Для каждого `fileDataId` сервис хранит:
 
-Источники
+- metadata объекта;
+- сам файл как отдельную object version.
 
-- [versioning-guide](https://docs.min.io/docs/minio-bucket-versioning-guide.html)
-- [erasure-code-quickstart-guide](https://docs.min.io/docs/minio-erasure-code-quickstart-guide)
+Из этого строятся:
 
-В репозитории в папке [minio-local-cluster](./minio-local-cluster/) содержатся примеры `docker-compose` манифестов
-(спизж**ных из официальной репы https://github.com/minio/minio/tree/master/docs/orchestration/docker-compose)
-для локального запуска сервера `minio` с включенным механизмом `Erasure Code`
+- `getFileData`
+- `generateDownloadUrl`
+- multipart completion flow
+
+Иными словами, клиентский контракт завязан на `fileDataId`, а конкретные object versions остаются внутренней деталью
+реализации.

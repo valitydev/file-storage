@@ -1,8 +1,8 @@
 package dev.vality.file.storage.handler;
 
 import dev.vality.file.storage.*;
-import dev.vality.file.storage.service.StorageService;
-import dev.vality.file.storage.service.exception.FileNotFoundException;
+import dev.vality.file.storage.service.S3LegacyMultipartStorageService;
+import dev.vality.file.storage.service.S3StorageService;
 import dev.vality.file.storage.util.CheckerUtil;
 import dev.vality.geck.common.util.TypeUtil;
 import dev.vality.msgpack.Value;
@@ -14,13 +14,15 @@ import org.springframework.stereotype.Service;
 import java.net.URL;
 import java.time.Instant;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class FileStorageHandler implements FileStorageSrv.Iface {
 
-    private final StorageService storageService;
+    private final S3StorageService storageService;
+    private final S3LegacyMultipartStorageService legacyMultipartStorageService;
 
     @Override
     public NewFileResult createNewFile(Map<String, Value> metadata, String expiresAt) throws TException {
@@ -36,7 +38,7 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
             Instant instant = TypeUtil.stringToInstant(expiresAt);
             URL url = storageService.generateDownloadUrl(fileDataId, instant);
             return url.toString();
-        } catch (FileNotFoundException e) {
+        } catch (NoSuchElementException e) {
             throw fileNotFound(e);
         }
     }
@@ -46,23 +48,7 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
         try {
             CheckerUtil.checkString(fileDataId, "Bad request parameter, fileDataId required and not empty arg");
             return storageService.getFileData(fileDataId);
-        } catch (FileNotFoundException e) {
-            throw fileNotFound(e);
-        }
-    }
-
-    /**
-     * @deprecated This method will be remove in next version.
-     */
-    @Override
-    @Deprecated(forRemoval = true)
-    public FileData getMultipartFileData(String fileDataId) throws TException {
-        try {
-            log.info("Receive request for get multipart file data with fileDataId={}", fileDataId);
-            FileData multipartFileData = storageService.getMultipartFileData(fileDataId);
-            log.info("Successfully get multipart file data with fileDataId={}", fileDataId);
-            return multipartFileData;
-        } catch (FileNotFoundException e) {
+        } catch (NoSuchElementException e) {
             throw fileNotFound(e);
         }
     }
@@ -70,7 +56,7 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
     @Override
     public CreateMultipartUploadResult createMultipartUpload(Map<String, Value> metadata) {
         log.info("Receive request for create multipart upload with metadata={}", metadata);
-        CreateMultipartUploadResult result = storageService.createMultipartUpload(metadata);
+        CreateMultipartUploadResult result = legacyMultipartStorageService.createMultipartUpload(metadata);
         log.info("Successfully create multipart upload, fileId={}, uploadId={}",
                 result.getFileDataId(), result.getMultipartUploadId());
         return result;
@@ -80,7 +66,7 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
     public UploadMultipartResult uploadMultipart(UploadMultipartRequestData request) {
         log.debug("Receive request for upload file part, fileId={}, uploadId={}, sequencePart={}",
                 request.getFileDataId(), request.getMultipartUploadId(), request.getSequencePart());
-        UploadMultipartResult result = storageService.uploadMultipart(request);
+        UploadMultipartResult result = legacyMultipartStorageService.uploadMultipart(request);
         log.debug("Successfully upload file part, fileId={}, uploadId={}, partId={}",
                 request.getFileDataId(), request.getMultipartUploadId(), result.getPartId());
         return result;
@@ -90,33 +76,13 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
     public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request) {
         log.info("Receive request for complete multipart upload, fileId={}, uploadId={}",
                 request.getFileDataId(), request.getMultipartUploadId());
-        CompleteMultipartUploadResult result = storageService.completeMultipartUpload(request);
+        CompleteMultipartUploadResult result = legacyMultipartStorageService.completeMultipartUpload(request);
         log.info("Successfully complete multipart upload, fileId={}, url={}",
                 request.getFileDataId(), result.getUploadUrl());
         return result;
     }
 
-    /**
-     * @deprecated This method will be remove in next version.
-     */
-    @Override
-    @Deprecated(forRemoval = true)
-    public String generateMultipartDownloadUrl(String fileDataId, String expiresAt) throws TException {
-        try {
-            log.info("Receive request for generate download url with fileDataId={}", fileDataId);
-            CheckerUtil.checkString(fileDataId, "Bad request parameter, fileDataId required and not empty arg");
-            CheckerUtil.checkString(expiresAt, "Bad request parameter, expiresAt required and not empty arg");
-            Instant instant = TypeUtil.stringToInstant(expiresAt);
-            URL url = storageService.generateMultipartDownloadUrl(fileDataId, instant);
-            log.info("Successfully generate download url with fileDataId={}", fileDataId);
-            log.debug("Generated download url={}", url);
-            return url.toString();
-        } catch (FileNotFoundException e) {
-            throw fileNotFound(e);
-        }
-    }
-
-    private FileNotFound fileNotFound(FileNotFoundException e) {
+    private FileNotFound fileNotFound(NoSuchElementException e) {
         log.warn("File not found", e);
         return new FileNotFound();
     }

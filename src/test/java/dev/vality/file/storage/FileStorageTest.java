@@ -4,9 +4,11 @@ import dev.vality.woody.api.flow.error.WRuntimeException;
 import dev.vality.woody.thrift.impl.http.THSpawnClientBuilder;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.HttpResponseException;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.impl.client.AbstractResponseHandler;
 import org.apache.http.impl.client.BasicResponseHandler;
@@ -33,7 +35,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -54,6 +55,7 @@ public abstract class FileStorageTest {
     private static final String FILE_NAME = "asd123.asd";
 
     protected FileStorageSrv.Iface fileStorageClient;
+    protected FileStoragePresignedMultipartSrv.Iface fileStoragePresignedMultipartClient;
 
     @Value("${local.server.port}")
     private int port;
@@ -64,6 +66,10 @@ public abstract class FileStorageTest {
                 .withAddress(new URI("http://localhost:" + port + "/file_storage/v2"))
                 .withNetworkTimeout(TIMEOUT)
                 .build(FileStorageSrv.Iface.class);
+        fileStoragePresignedMultipartClient = new THSpawnClientBuilder()
+                .withAddress(new URI("http://localhost:" + port + "/file_storage/presigned-multipart/v1"))
+                .withNetworkTimeout(TIMEOUT)
+                .build(FileStoragePresignedMultipartSrv.Iface.class);
     }
 
     @Test
@@ -276,6 +282,124 @@ public abstract class FileStorageTest {
     }
 
     @Test
+    public void presignedMultipartUploadFlowTest() throws Exception {
+        dev.vality.msgpack.Value fileName = str("test_registry.csv");
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", fileName);
+        PresignedMultipartUpload createResult = fileStoragePresignedMultipartClient.createMultipartUpload(metadata);
+        assertNotNull(createResult.getFileDataId());
+        assertNotNull(createResult.getMultipartUploadId());
+        assertEquals(FileUploadStatus.pending_upload, createResult.getUploadStatus());
+        assertEquals(fileName.getStr(), createResult.getFileName());
+        assertFalse(createResult.isSetFileUrl());
+
+        PresignedMultipartUpload pendingUpload = fileStoragePresignedMultipartClient
+                .getMultipartUpload(createResult.getFileDataId());
+        assertEquals(FileUploadStatus.pending_upload, pendingUpload.getUploadStatus());
+        assertEquals(createResult.getMultipartUploadId(), pendingUpload.getMultipartUploadId());
+        assertEquals(fileName.getStr(), pendingUpload.getFileName());
+
+        List<CompletedPresignedMultipart> completedParts = processPresignedMultipartUpload(createResult);
+        var completeRequest = new CompletePresignedMultipartUploadRequest()
+                .setMultipartUploadId(createResult.getMultipartUploadId())
+                .setFileDataId(createResult.getFileDataId())
+                .setCompletedParts(completedParts);
+        CompletePresignedMultipartUploadResult result = fileStoragePresignedMultipartClient
+                .completeMultipartUpload(completeRequest);
+
+        assertNotNull(result);
+        assertEquals(createResult.getFileDataId(), result.getFileDataId());
+        assertEquals(createResult.getMultipartUploadId(), result.getMultipartUploadId());
+        assertEquals(FileUploadStatus.uploaded, result.getUploadStatus());
+        assertNotNull(result.getFileUrl());
+
+        PresignedMultipartUpload uploadedState = fileStoragePresignedMultipartClient
+                .getMultipartUpload(createResult.getFileDataId());
+        assertEquals(FileUploadStatus.uploaded, uploadedState.getUploadStatus());
+        assertEquals(result.getFileUrl(), uploadedState.getFileUrl());
+
+        FileData multipartFileData = fileStorageClient.getFileData(createResult.getFileDataId());
+        assertEquals(createResult.getFileDataId(), multipartFileData.getFileDataId());
+        assertEquals(fileName.getStr(), multipartFileData.getFileName());
+        assertNotNull(multipartFileData.getCreatedAt());
+        assertNotNull(multipartFileData.getMetadata());
+
+        String downloadUrl = fileStorageClient.generateDownloadUrl(
+                createResult.getFileDataId(), generateCurrentTimePlusDay().toString());
+        downloadTestData(downloadUrl, getFileFromResources("test_registry.csv"));
+    }
+
+    @Test
+    public void presignedMultipartAbortFlowTest() throws Exception {
+        dev.vality.msgpack.Value fileName = str("test_registry.csv");
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", fileName);
+        PresignedMultipartUpload createResult = fileStoragePresignedMultipartClient.createMultipartUpload(metadata);
+
+        fileStoragePresignedMultipartClient.abortMultipartUpload(new AbortMultipartUploadRequest()
+                .setFileDataId(createResult.getFileDataId())
+                .setMultipartUploadId(createResult.getMultipartUploadId()));
+
+        PresignedMultipartUpload abortedState = fileStoragePresignedMultipartClient
+                .getMultipartUpload(createResult.getFileDataId());
+        assertEquals(FileUploadStatus.aborted, abortedState.getUploadStatus());
+        assertFalse(abortedState.isSetFileUrl());
+
+        assertThrows(WRuntimeException.class, () -> fileStoragePresignedMultipartClient.presignMultipartUploadPart(
+                new PresignMultipartUploadPartRequest()
+                        .setFileDataId(createResult.getFileDataId())
+                        .setMultipartUploadId(createResult.getMultipartUploadId())
+                        .setSequencePart(1)
+                        .setContentLength((long) FILE_DATA.getBytes(StandardCharsets.UTF_8).length)));
+    }
+
+    @Test
+    public void presignedMultipartRejectsWrongUploadIdTest() throws Exception {
+        dev.vality.msgpack.Value fileName = str("test_registry.csv");
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", fileName);
+        PresignedMultipartUpload createResult = fileStoragePresignedMultipartClient.createMultipartUpload(metadata);
+
+        var exception = assertThrows(WRuntimeException.class, () -> fileStoragePresignedMultipartClient
+                .presignMultipartUploadPart(new PresignMultipartUploadPartRequest()
+                        .setFileDataId(createResult.getFileDataId())
+                        .setMultipartUploadId("wrong-upload-id")
+                        .setSequencePart(1)
+                        .setContentLength((long) FILE_DATA.getBytes(StandardCharsets.UTF_8).length)));
+        assertThat(exception.getErrorDefinition().getErrorReason(),
+                containsString("Multipart upload id does not match stored state"));
+    }
+
+    @Test
+    public void presignedMultipartRejectsDuplicateCompletedPartsTest() throws Exception {
+        dev.vality.msgpack.Value fileName = str("test_registry.csv");
+        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", fileName);
+        PresignedMultipartUpload createResult = fileStoragePresignedMultipartClient.createMultipartUpload(metadata);
+
+        PresignMultipartUploadPartResult presignedPart = fileStoragePresignedMultipartClient
+                .presignMultipartUploadPart(new PresignMultipartUploadPartRequest()
+                        .setFileDataId(createResult.getFileDataId())
+                        .setMultipartUploadId(createResult.getMultipartUploadId())
+                        .setSequencePart(1)
+                        .setContentLength((long) FILE_DATA.getBytes(StandardCharsets.UTF_8).length));
+
+        String etag = uploadPresignedPart(
+                presignedPart.getUploadUrl(),
+                FILE_DATA.getBytes(StandardCharsets.UTF_8),
+                presignedPart.getRequiredHeaders());
+
+        List<CompletedPresignedMultipart> duplicateParts = List.of(
+                new CompletedPresignedMultipart().setSequencePart(1).setEtag(etag),
+                new CompletedPresignedMultipart().setSequencePart(1).setEtag(etag)
+        );
+
+        var exception = assertThrows(WRuntimeException.class, () -> fileStoragePresignedMultipartClient
+                .completeMultipartUpload(new CompletePresignedMultipartUploadRequest()
+                        .setFileDataId(createResult.getFileDataId())
+                        .setMultipartUploadId(createResult.getMultipartUploadId())
+                        .setCompletedParts(duplicateParts)));
+        assertThat(exception.getErrorDefinition().getErrorReason(),
+                containsString("Completed parts must contain unique sequencePart values"));
+    }
+
+    @Test
     public void multipartUploadTest() throws Exception {
         var exception = assertThrows(WRuntimeException.class,
                 () -> fileStorageClient.createMultipartUpload(Collections.emptyMap()));
@@ -300,60 +424,6 @@ public abstract class FileStorageTest {
 
         assertNotNull(result);
         assertNotNull(result.getUploadUrl());
-    }
-
-    @Test
-    public void getMultipartFileData() throws Exception {
-        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
-        String fileName = "test_registry.csv";
-        value.setStr(fileName);
-        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
-        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
-        assertNotNull(createResult.getFileDataId());
-        assertNotNull(createResult.getMultipartUploadId());
-
-        List<CompletedMultipart> completedParts = new ArrayList<>();
-        processMultipartUpload(createResult, completedParts);
-
-        var completeRequest = new CompleteMultipartUploadRequest()
-                .setMultipartUploadId(createResult.getMultipartUploadId())
-                .setFileDataId(createResult.getFileDataId())
-                .setCompletedParts(completedParts);
-
-        fileStorageClient.completeMultipartUpload(completeRequest);
-
-        FileData multipartFileData = fileStorageClient.getFileData(createResult.getFileDataId());
-
-        assertEquals(createResult.getFileDataId(), multipartFileData.getFileDataId());
-        assertEquals(fileName, multipartFileData.getFileName());
-        assertNotNull(multipartFileData.getCreatedAt());
-        assertNotNull(multipartFileData.getMetadata());
-    }
-
-    @Test
-    public void generateMultipartDownloadUrl() throws Exception {
-        dev.vality.msgpack.Value value = new dev.vality.msgpack.Value();
-        String fileName = "test_registry.csv";
-        value.setStr(fileName);
-        Map<String, dev.vality.msgpack.Value> metadata = Map.of("filename", value);
-        CreateMultipartUploadResult createResult = fileStorageClient.createMultipartUpload(metadata);
-        assertNotNull(createResult.getFileDataId());
-        assertNotNull(createResult.getMultipartUploadId());
-
-        List<CompletedMultipart> completedParts = new ArrayList<>();
-        processMultipartUpload(createResult, completedParts);
-
-        var completeRequest = new CompleteMultipartUploadRequest()
-                .setMultipartUploadId(createResult.getMultipartUploadId())
-                .setFileDataId(createResult.getFileDataId())
-                .setCompletedParts(completedParts);
-
-        fileStorageClient.completeMultipartUpload(completeRequest);
-
-        String expiredTime = Instant.now().toString();
-        String url = fileStorageClient.generateDownloadUrl(createResult.getFileDataId(), expiredTime);
-
-        assertNotNull(url);
     }
 
     private void uploadTestData(NewFileResult fileResult, String fileName, Path testData) throws IOException {
@@ -470,6 +540,61 @@ public abstract class FileStorageTest {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private List<CompletedPresignedMultipart> processPresignedMultipartUpload(PresignedMultipartUpload createResult)
+            throws Exception {
+        int partNumber = 1;
+        ByteBuffer buffer = ByteBuffer.allocate(5 * 1024 * 1024);
+        List<CompletedPresignedMultipart> completedParts = new ArrayList<>();
+        Path path = getFileFromResources("test_registry.csv");
+        try (RandomAccessFile file = new RandomAccessFile(path.toFile(), "r")) {
+            long fileSize = file.length();
+            long position = 0;
+            while (position < fileSize) {
+                file.seek(position);
+                int bytesRead = file.getChannel().read(buffer);
+                buffer.flip();
+                byte[] content = new byte[bytesRead];
+                buffer.get(content);
+
+                PresignMultipartUploadPartResult presignedPart = fileStoragePresignedMultipartClient
+                        .presignMultipartUploadPart(new PresignMultipartUploadPartRequest()
+                                .setFileDataId(createResult.getFileDataId())
+                                .setMultipartUploadId(createResult.getMultipartUploadId())
+                                .setSequencePart(partNumber)
+                                .setContentLength((long) bytesRead));
+
+                assertTrue(presignedPart.isSetExpiresAt());
+                assertTrue(presignedPart.isSetRequiredHeaders());
+
+                String etag = uploadPresignedPart(presignedPart.getUploadUrl(), content,
+                        presignedPart.getRequiredHeaders());
+                completedParts.add(new CompletedPresignedMultipart()
+                        .setSequencePart(partNumber)
+                        .setEtag(etag));
+
+                buffer.clear();
+                position += bytesRead;
+                partNumber++;
+            }
+        }
+        return completedParts;
+    }
+
+    private String uploadPresignedPart(String uploadUrl, byte[] content, Map<String, String> requiredHeaders)
+            throws IOException {
+        try (var client = HttpClients.createDefault()) {
+            var requestPut = new HttpPut(uploadUrl);
+            requiredHeaders.forEach(requestPut::setHeader);
+            requestPut.setEntity(new ByteArrayEntity(content, ContentType.APPLICATION_OCTET_STREAM));
+            try (CloseableHttpResponse response = client.execute(requestPut)) {
+                assertEquals(HttpStatus.OK.value(), response.getStatusLine().getStatusCode());
+                var etagHeader = response.getFirstHeader("ETag");
+                assertNotNull(etagHeader);
+                return etagHeader.getValue();
+            }
         }
     }
 }
