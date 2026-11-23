@@ -42,6 +42,25 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
     }
 
     @Override
+    public String generateDownloadUrlWithOptions(
+            String fileDataId,
+            String expiresAt,
+            String fileName,
+            String contentType) throws TException {
+        try {
+            CheckerUtil.checkString(fileDataId, "Bad request parameter, fileDataId required and not empty arg");
+            CheckerUtil.checkString(expiresAt, "Bad request parameter, expiresAt required and not empty arg");
+            CheckerUtil.checkNotBlank(fileName, "Bad request parameter, fileName required and not empty arg");
+            CheckerUtil.checkString(contentType, "Bad request parameter, contentType required and not empty arg");
+            Instant instant = TypeUtil.stringToInstant(expiresAt);
+            URL url = storageService.generateDownloadUrlWithOptions(fileDataId, instant, fileName, contentType);
+            return url.toString();
+        } catch (FileNotFoundException e) {
+            throw fileNotFound(e);
+        }
+    }
+
+    @Override
     public FileData getFileData(String fileDataId) throws TException {
         try {
             CheckerUtil.checkString(fileDataId, "Bad request parameter, fileDataId required and not empty arg");
@@ -120,4 +139,5 @@ public class FileStorageHandler implements FileStorageSrv.Iface {
         log.warn("File not found", e);
         return new FileNotFound();
     }
+
 }

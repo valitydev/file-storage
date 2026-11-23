@@ -13,6 +13,12 @@ public interface StorageService {
 
     URL generateDownloadUrl(String fileDataId, Instant expirationTime);
 
+    URL generateDownloadUrlWithOptions(
+            String fileDataId,
+            Instant expirationTime,
+            String fileName,
+            String contentType);
+
     FileData getFileData(String fileDataId);
 
     FileData getMultipartFileData(String fileId);

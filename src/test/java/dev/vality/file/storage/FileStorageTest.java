@@ -168,6 +168,31 @@ public abstract class FileStorageTest {
     }
 
     @Test
+    public void downloadUrlWithOptionsTest() throws IOException, TException {
+        // создание нового файла
+        String expirationTime = generateCurrentTimePlusDay().toString();
+        NewFileResult fileResult = fileStorageClient.createNewFile(Collections.emptyMap(), expirationTime);
+
+        // загрузка тестовых данных в хранилище
+        uploadTestData(fileResult, FILE_NAME);
+
+        // генерация url с параметрами ответа
+        URL url = new URL(fileStorageClient.generateDownloadUrlWithOptions(
+                fileResult.getFileDataId(),
+                expirationTime,
+                "receipt.pdf",
+                "application/pdf"));
+
+        // получение файла по сгенерированной ссылке
+        HttpURLConnection connection = getHttpURLConnection(url, "GET", false);
+
+        // проверка статуса и заголовков ответа
+        assertEquals(HttpStatus.OK.value(), connection.getResponseCode());
+        assertEquals("application/pdf", connection.getHeaderField("Content-Type"));
+        assertEquals("inline; filename=\"receipt.pdf\"", connection.getHeaderField("Content-Disposition"));
+    }
+
+    @Test
     public void expirationTimeTest() throws TException, InterruptedException, IOException {
         // создание файла с доступом к файлу на день
         String expirationTime = generateCurrentTimePlusDay().toString();

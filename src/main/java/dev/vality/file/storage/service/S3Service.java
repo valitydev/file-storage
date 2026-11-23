@@ -14,6 +14,7 @@ import dev.vality.file.storage.service.exception.ExtractMetadataException;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
 import dev.vality.file.storage.service.exception.StorageException;
 import dev.vality.file.storage.service.exception.WaitingUploadException;
+import dev.vality.file.storage.util.ContentDispositionUtil;
 import dev.vality.file.storage.util.DamselUtil;
 import dev.vality.msgpack.Value;
 import lombok.Getter;
@@ -96,6 +97,23 @@ public class S3Service implements StorageService {
         log.info("Download Url has been successfully generate, fileDataId='{}', bucketId='{}'", fileDataId, bucketName);
 
         return generatePresignedUrl;
+    }
+
+    @Override
+    public URL generateDownloadUrlWithOptions(
+            String fileDataId,
+            Instant expirationTime,
+            String fileName,
+            String contentType) {
+        FileDto fileDto = getFileDto(fileDataId);
+        GeneratePresignedUrlRequest request = generatePresignedUrlRequest(
+                fileDto.getFileId(),
+                expirationTime,
+                HttpMethod.GET);
+        request.setResponseHeaders(new ResponseHeaderOverrides()
+                .withContentDisposition(ContentDispositionUtil.inline(fileName))
+                .withContentType(contentType));
+        return s3Client.generatePresignedUrl(request);
     }
 
     @Override

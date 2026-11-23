@@ -5,6 +5,7 @@ import dev.vality.file.storage.CompleteMultipartUploadRequest;
 import dev.vality.file.storage.configuration.properties.S3SdkV2Properties;
 import dev.vality.file.storage.service.exception.FileNotFoundException;
 import dev.vality.file.storage.service.exception.StorageException;
+import dev.vality.file.storage.util.ContentDispositionUtil;
 import dev.vality.file.storage.util.DamselUtil;
 import dev.vality.msgpack.Value;
 import lombok.Getter;
@@ -70,6 +71,24 @@ public class S3V2Service implements StorageService {
         checkFileExist(fileId, versions);
         var fileVersionId = getFileVersionId(fileId, versions);
         PresignedGetObjectRequest presignedRequest = getPresignedRequest(fileId, expirationTime, fileVersionId);
+        return presignedRequest.url();
+    }
+
+    @Override
+    public URL generateDownloadUrlWithOptions(
+            String fileId,
+            Instant expirationTime,
+            String fileName,
+            String contentType) {
+        var versions = getObjectVersions(fileId);
+        checkFileExist(fileId, versions);
+        var fileVersionId = getFileVersionId(fileId, versions);
+        PresignedGetObjectRequest presignedRequest = getPresignedRequest(
+                fileId,
+                expirationTime,
+                fileVersionId,
+                fileName,
+                contentType);
         return presignedRequest.url();
     }
 
@@ -525,13 +544,27 @@ public class S3V2Service implements StorageService {
     }
 
     private PresignedGetObjectRequest getPresignedRequest(String fileId, Instant expirationTime, String fileVersionId) {
+        return getPresignedRequest(fileId, expirationTime, fileVersionId, null, null);
+    }
+
+    private PresignedGetObjectRequest getPresignedRequest(
+            String fileId,
+            Instant expirationTime,
+            String fileVersionId,
+            String fileName,
+            String contentType) {
+        GetObjectRequest.Builder getObjectRequest = GetObjectRequest.builder()
+                .bucket(s3SdkV2Properties.getBucketName())
+                .key(fileId)
+                .versionId(fileVersionId);
+        if (fileName != null && contentType != null) {
+            getObjectRequest
+                    .responseContentDisposition(ContentDispositionUtil.inline(fileName))
+                    .responseContentType(contentType);
+        }
         var presignRequest = GetObjectPresignRequest.builder()
                 .signatureDuration(Duration.between(Instant.now(), expirationTime))
-                .getObjectRequest(GetObjectRequest.builder()
-                        .bucket(s3SdkV2Properties.getBucketName())
-                        .key(fileId)
-                        .versionId(fileVersionId)
-                        .build())
+                .getObjectRequest(getObjectRequest.build())
                 .build();
         var presignedRequest = s3Presigner.presignGetObject(presignRequest);
         log.info("Download url was presigned, fileId={}, bucketName={}, isBrowserExecutable={}",
