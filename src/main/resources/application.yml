@@ -41,11 +41,3 @@ s3-sdk-v2:
   region: 'RU'
   access-key: 'minio'
   secret-key: 'minio123'
-
-testcontainers:
-  ceph:
-    accessKey: 'test'
-    secretKey: 'test'
-  minio:
-    user: 'minio'
-    password: 'minio123'
