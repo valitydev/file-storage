@@ -1,5 +1,6 @@
 package dev.vality.file.storage;
 
+import dev.vality.file.storage.config.RustFsTestBase;
 import dev.vality.woody.api.flow.error.WRuntimeException;
 import dev.vality.woody.thrift.impl.http.THSpawnClientBuilder;
 import org.apache.http.HttpEntity;
@@ -20,7 +21,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
-import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -34,12 +34,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 
 import static dev.vality.msgpack.Value.*;
-import static dev.vality.testcontainers.annotations.util.ValuesGenerator.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.*;
@@ -47,7 +47,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource("classpath:application.yml")
 @DirtiesContext
-public abstract class FileStorageTest {
+public class FileStorageTest extends RustFsTestBase {
 
     private static final int TIMEOUT = 555000;
     private static final String FILE_DATA = "test";
@@ -382,28 +382,26 @@ public abstract class FileStorageTest {
                     new AbstractResponseHandler<Path>() {
                         @Override
                         public Path handleEntity(HttpEntity entity) throws IOException {
-                            var inputFile = Files.createTempFile(generateId(), "");
+                            var inputFile = Files.createTempFile(UUID.randomUUID().toString(), "");
                             try (var outstream = new FileOutputStream(inputFile.toFile())) {
                                 entity.writeTo(outstream);
                                 return inputFile;
                             }
                         }
                     });
-            assertTrue(FileUtils.contentEquals(expected.toFile(), content.toFile()));
             assertArrayEquals(Files.readAllBytes(expected), Files.readAllBytes(content));
             content = client.execute(
                     new HttpGet(downloadUrl),
                     new AbstractResponseHandler<>() {
                         @Override
                         public Path handleEntity(HttpEntity entity) throws IOException {
-                            var inputFile = Files.createTempFile(generateId(), "");
+                            var inputFile = Files.createTempFile(UUID.randomUUID().toString(), "");
                             try (InputStream source = entity.getContent()) {
-                                FileUtils.copyInputStreamToFile(source, inputFile.toFile());
+                                Files.copy(source, inputFile, StandardCopyOption.REPLACE_EXISTING);
                                 return inputFile;
                             }
                         }
                     });
-            assertTrue(FileUtils.contentEquals(expected.toFile(), content.toFile()));
             assertArrayEquals(Files.readAllBytes(expected), Files.readAllBytes(content));
             var contentByte = client.execute(
                     new HttpGet(downloadUrl),
@@ -421,6 +419,18 @@ public abstract class FileStorageTest {
         var classLoader = this.getClass().getClassLoader();
         var url = Objects.requireNonNull(classLoader.getResource(name));
         return Paths.get(url.toURI());
+    }
+
+    private static Instant generateCurrentTimePlusDay() {
+        return Instant.now()
+                .plus(1, ChronoUnit.DAYS)
+                .truncatedTo(ChronoUnit.MICROS);
+    }
+
+    private static Instant generateCurrentTimePlusSecond() {
+        return Instant.now()
+                .plus(1, ChronoUnit.SECONDS)
+                .truncatedTo(ChronoUnit.MICROS);
     }
 
     private static HttpURLConnection getHttpURLConnection(URL url, String method, boolean doOutput) throws IOException {

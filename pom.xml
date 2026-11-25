@@ -21,6 +21,7 @@
         <management.port>8023</management.port>
         <exposed.ports>${server.port} ${management.port}</exposed.ports>
         <dockerfile.registry>${env.REGISTRY}</dockerfile.registry>
+        <testcontainers.version>1.21.4</testcontainers.version>
         <checkstyle.config.suppressions.path>./src/main/resources/checkstyle/checkstyle-suppressions.xml
         </checkstyle.config.suppressions.path>
     </properties>
@@ -97,9 +98,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>dev.vality</groupId>
-            <artifactId>testcontainers-annotations</artifactId>
-            <version>3.3.2</version>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
