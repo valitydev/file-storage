@@ -9,10 +9,4 @@ public class CheckerUtil {
             throw new IllegalArgumentException(exMessage);
         }
     }
-
-    public static void checkNotBlank(String string, String exMessage) {
-        if (!StringUtils.hasText(string)) {
-            throw new IllegalArgumentException(exMessage);
-        }
-    }
 }

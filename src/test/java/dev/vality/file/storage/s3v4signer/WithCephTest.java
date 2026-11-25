@@ -1,8 +1,0 @@
-package dev.vality.file.storage.s3v4signer;
-
-import dev.vality.file.storage.FileStorageTest;
-import org.junit.jupiter.api.Disabled;
-
-@Disabled
-public class WithCephTest extends FileStorageTest {
-}
