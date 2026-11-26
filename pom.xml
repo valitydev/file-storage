@@ -6,7 +6,7 @@
     <parent>
         <groupId>dev.vality</groupId>
         <artifactId>service-parent-pom</artifactId>
-        <version>3.1.6</version>
+        <version>3.1.11</version>
     </parent>
 
     <artifactId>file-storage</artifactId>
@@ -21,6 +21,7 @@
         <management.port>8023</management.port>
         <exposed.ports>${server.port} ${management.port}</exposed.ports>
         <dockerfile.registry>${env.REGISTRY}</dockerfile.registry>
+        <maven.compiler.proc>full</maven.compiler.proc>
         <testcontainers.version>1.21.4</testcontainers.version>
         <checkstyle.config.suppressions.path>./src/main/resources/checkstyle/checkstyle-suppressions.xml
         </checkstyle.config.suppressions.path>
@@ -49,6 +50,14 @@
             <groupId>dev.vality.geck</groupId>
             <artifactId>filter</artifactId>
         </dependency>
+        <dependency>
+            <groupId>dev.vality.woody</groupId>
+            <artifactId>woody-thrift</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.vality.woody</groupId>
+            <artifactId>woody-api</artifactId>
+        </dependency>
 
         <!-- Spring libs -->
         <dependency>
@@ -76,6 +85,10 @@
         </dependency>
 
         <!-- Third party libs -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
