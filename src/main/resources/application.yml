@@ -39,5 +39,5 @@ s3-sdk-v2:
   endpoint: 'http://127.0.0.1:9000'
   bucket-name: 'files-v2'
   region: 'RU'
-  access-key: 'minio'
-  secret-key: 'minio123'
+  access-key: 'local-access-key'
+  secret-key: 'local-secret-key'
