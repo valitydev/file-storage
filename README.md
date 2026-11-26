@@ -12,15 +12,6 @@ s3-sdk-v2:
   endpoint: 'http://127.0.0.1:9000'
   bucket-name: 'files-v2'
   region: 'RU'
-  access-key: 'minio'
-  secret-key: 'minio123'
-```
-
-## Тесты
-
-Интеграционные тесты `FileStorageTest` запускают RustFS через Testcontainers. Адрес S3, имя бакета и учётные данные
-подставляются автоматически. Для запуска нужен работающий Docker и JDK 25.
-
-```bash
-mvn test
+  access-key: 'local-access-key'
+  secret-key: 'local-secret-key'
 ```
