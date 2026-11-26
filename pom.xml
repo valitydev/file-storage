@@ -6,7 +6,7 @@
     <parent>
         <groupId>dev.vality</groupId>
         <artifactId>service-parent-pom</artifactId>
-        <version>3.1.11</version>
+        <version>4.0.1</version>
     </parent>
 
     <artifactId>file-storage</artifactId>
@@ -17,6 +17,8 @@
     <description>Service for uploading and downloading files</description>
 
     <properties>
+        <java.version>25</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
         <server.port>8022</server.port>
         <management.port>8023</management.port>
         <exposed.ports>${server.port} ${management.port}</exposed.ports>
@@ -132,6 +134,7 @@
                 <filtering>true</filtering>
                 <excludes>
                     <exclude>Dockerfile</exclude>
+                    <exclude>opentelemetry-javaagent.jar</exclude>
                 </excludes>
             </resource>
             <resource>
