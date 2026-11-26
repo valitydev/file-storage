@@ -8,10 +8,11 @@ server:
 management:
   server:
     port: '${management.port}'
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: false
+  metrics:
     tags:
       application: '${project.name}'
   endpoint:
@@ -20,9 +21,9 @@ management:
         enabled: true
       show-details: always
     metrics:
-      enabled: true
+      access: read-only
     prometheus:
-      enabled: true
+      access: read-only
   endpoints:
     web:
       exposure:
