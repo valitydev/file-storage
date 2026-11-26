@@ -18,4 +18,9 @@ s3-sdk-v2:
 
 ## Тесты
 
-`FileStorageTest` запускает RustFS через Testcontainers; для тестов нужен работающий Docker. В CI используется JDK 25.
+Интеграционные тесты `FileStorageTest` запускают RustFS через Testcontainers. Адрес S3, имя бакета и учётные данные
+подставляются автоматически, отдельно поднимать MinIO не нужно. Для запуска нужен работающий Docker и JDK 25.
+
+```bash
+mvn test
+```
