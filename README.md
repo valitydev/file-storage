@@ -16,6 +16,10 @@ s3-sdk-v2:
   secret-key: 'minio123'
 ```
 
+## Тесты
+
+`FileStorageTest` запускает RustFS через Testcontainers; для тестов нужен работающий Docker. В CI используется JDK 25.
+
 ## Minio
 
 Если сервисом используется 2 версия `AWS SDK S3 V2`, и в качестве s3 кластера используется `minio`, то для поддержки
